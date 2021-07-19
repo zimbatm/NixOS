@@ -69,9 +69,8 @@ def main():
     with open(secrets_file, 'r') as f:
       all_secrets = yaml.safe_load(f)
 
-    if all_secrets[args.server_name]:
-      secrets_data = all_secrets[args.server_name]
-
+    secrets_data = all_secrets.get(args.server_name)
+    if secrets_data:
       if not secrets_data['server_name'] == args.server_name:
         raise Exception(f'The given server name "{args.server_name}" ' +
                          'does not correspond to the one found ' +
