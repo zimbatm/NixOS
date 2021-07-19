@@ -139,7 +139,6 @@ def write_secrets(encrypted_secrets_list: List[EncryptedSecrets],
               for encrypted_secrets in encrypted_secrets_list }
 
   try:
-    # write the encrypted secrets yml in [servername]-secrets.yml
     with open(os.path.join(output_path, GENERATED_SECRETS_FILENAME), 'w') as f:
       yaml.safe_dump(content, f, default_style='|')
   except:
