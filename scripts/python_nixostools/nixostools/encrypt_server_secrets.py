@@ -28,8 +28,7 @@ from nixostools.secret_lib import OPENSSH_PUBLIC_KEY_STRING_LENGTH, \
                                   SERVERS_KEY, \
                                   PATH_KEY, \
                                   CONTENT_KEY, \
-                                  UTF8, \
-                                  GENERATED_SECRETS_FILENAME
+                                  UTF8
 
 
 @dataclass(frozen=True)
@@ -51,11 +50,19 @@ class EncryptedSecrets:
   encrypted_key: str
   encrypted_secrets: str
 
+  def export_secrets(self) -> Mapping[str,str]:
+    server_name = 'server_name'
+    # Throw an assertion error if ever the name of the attribute is changed
+    # without it being updated here.
+    assert hasattr(self, server_name)
+    return { k:v for k,v in dataclasses.asdict(self).items()
+                 if k != server_name }
+
 
 def args_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser()
   parser.add_argument("--output_path", dest="output_path", required=True, type=str,
-                      help="path to the folder where we should store the generated encrypted files")
+                      help="path to the file in which we should write the generated encrypted secrets")
   parser.add_argument("--ansible_vault_passwd", dest="ansible_vault_passwd", required=False, type=str,
                       help="the ansible-vault password, if empty the script will ask for the password")
   parser.add_argument("--secrets_directory", dest="secrets_directory", required=True, type=str,
@@ -95,7 +102,7 @@ def get_secrets(secrets) -> Iterable[ServerSecretData]:
     return out
 
   init: Mapping[str, ServerSecretData] = {}
-  return reduce(reducer, secrets[SECRETS_KEY].items(), init).values()
+  return reduce(reducer, secrets.get(SECRETS_KEY, {}).items(), init).values()
 
 
 def encrypt_data(data: PaddedServerSecretData,
@@ -135,11 +142,11 @@ def pad_secrets(data: Iterable[ServerSecretData]) -> Iterable[PaddedServerSecret
 def write_secrets(encrypted_secrets_list: List[EncryptedSecrets],
                   output_path: str) -> bool:
   print(f'Writing generated secrets...')
-  content = { encrypted_secrets.server_name: dataclasses.asdict(encrypted_secrets)
+  content = { encrypted_secrets.server_name: encrypted_secrets.export_secrets()
               for encrypted_secrets in encrypted_secrets_list }
 
   try:
-    with open(os.path.join(output_path, GENERATED_SECRETS_FILENAME), 'w') as f:
+    with open(output_path, 'w') as f:
       yaml.safe_dump(content, f, default_style='|')
   except:
     print(f'ERROR : failed to write generated secrets file')
@@ -162,7 +169,8 @@ def read_secrets_files(secrets_files: Iterable[str], ansible_passwd: str) -> Map
 
     return ocb_nixos_lib.deep_merge(secrets_data, new_secrets)
 
-  return reduce(reducer, secrets_files, {})
+  init: Mapping = { SECRETS_KEY: {} }
+  return reduce(reducer, secrets_files, init)
 
 
 def check_duplicate_secrets(secrets_files: Iterable[str], ansible_passwd: str) -> None:

@@ -45,6 +45,8 @@ with lib;
       readOnly = true;
     };
 
+    # It is crucial that this option has type str and not path,
+    # to avoid the private key being copied into the nix store.
     private_key = mkOption {
       type     = types.str;
       default  = "${cfg.private_key_directory}/id_tunnel";
@@ -93,6 +95,14 @@ with lib;
         type = types.path;
         description = ''
           The directory containing the generated and encrypted secrets.
+        '';
+      };
+
+      src_file = mkOption {
+        type = types.path;
+        default = cfg.secrets.src_directory + "/generated-secrets.yml";
+        description = ''
+          The file containing the generated and encrypted secrets.
         '';
       };
 
@@ -293,7 +303,7 @@ with lib;
 
           ${pkgs.ocb_python_scripts}/bin/decrypt_server_secrets \
             --server_name "${config.networking.hostName}" \
-            --secrets_path "${cfg.secrets.src_directory}" \
+            --secrets_path "${cfg.secrets.src_file}" \
             --output_path "${cfg.secrets.dest_directory}" \
             --private_key_file "${cfg.private_key}"
 

@@ -75,7 +75,7 @@ jobs:
           nix-shell ./scripts/python_nixostools/shell.nix --run
           "encrypt_server_secrets
           --ansible_vault_passwd '${{ secrets.NIXOS_SECRET_MANAGEMENT_VAULT_KEY }}'
-          --output_path        './org-config/secrets/generated/'
+          --output_path        './org-config/secrets/generated/generated-secrets.yml'
           --secrets_directory  './org-config/secrets/'
           --tunnel_config_path './org-config/json/tunnels.d'"
 
