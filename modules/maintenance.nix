@@ -43,9 +43,22 @@ in {
       '';
     };
 
-    config_repos = mkOption {
-      type    = with types; attrsOf (submodule repoOpts);
-      default = {};
+    # TODO: remove the defaults
+    config_repos = {
+      main = mkOption {
+        type = types.submodule repoOpts;
+        default = {
+          branch = "master";
+          url = sys_cfg.org.repo_to_url "NixOS-config";
+        };
+      };
+      org = mkOption {
+        type = types.submodule repoOpts;
+        default = {
+          branch = "master";
+          url = sys_cfg.org.repo_to_url "NixOS-OCB-config";
+        };
+      };
     };
 
     nixos_upgrade.startAt = mkOption {
@@ -65,17 +78,6 @@ in {
   };
 
   config = mkIf cfg.enable {
-    settings.maintenance.config_repos = {
-      main = {
-        branch = "master";
-        url = "git@github.com:MSF-OCB/NixOS-config.git";
-      };
-      org = {
-        branch = "master";
-        url = "git@github.com:MSF-OCB/NixOS-OCB-config.git";
-      };
-    };
-
     system.autoUpgrade = {
       enable       = true;
       allowReboot  = true;
@@ -108,16 +110,16 @@ in {
         };
         script = let
           base_path = "/etc/nixos";
-          config_path = "${base_path}/${sys_cfg.org_config_dir_name}";
+          config_path = "${base_path}/${sys_cfg.org.config_dir_name}";
           old_config_path = "${base_path}/ocb-config";
 
           hostname         = config.networking.hostName;
           settings_path    = "/etc/nixos/settings.nix";
-          destination_path = "/etc/nixos/${sys_cfg.org_config_dir_name}/hosts/${hostname}.nix";
+          destination_path = "/etc/nixos/${sys_cfg.org.config_dir_name}/hosts/${hostname}.nix";
         in ''
           # Main repo
 
-          ${msf_lib.reset_git { inherit (cfg.config_repos.main) branch;
+          ${msf_lib.reset_git { inherit (cfg.config_repos.main) url branch;
                                 git_options = [ "-C" base_path ]; }}
 
           # Organisation-specific repo
@@ -135,7 +137,7 @@ in {
             rm --recursive --force "${old_config_path}"
           fi
 
-          ${msf_lib.reset_git { inherit (cfg.config_repos.org) branch;
+          ${msf_lib.reset_git { inherit (cfg.config_repos.org) url branch;
                                 git_options = [ "-C" config_path ]; }}
 
           # Settings link

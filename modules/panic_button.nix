@@ -5,6 +5,7 @@ with lib;
 let
   cfg = config.settings.services.panic_button;
   crypto_cfg = config.settings.crypto;
+  sys_cfg = config.settings.system;
 in
 
 {
@@ -59,6 +60,7 @@ in
       panic_button = let
         json_data = builtins.fromJSON (builtins.readFile ./panic_button.json);
       in self.callPackage (self.fetchFromGitHub {
+        # TODO use the github_org option
         owner = "msf-ocb";
         repo  = "panic_button";
         inherit (json_data) rev sha256;

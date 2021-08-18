@@ -6,9 +6,37 @@ let
 in
 
 with lib;
+with (import ../msf_lib.nix);
 
 {
   options.settings.system = {
+
+    partitions = {
+      forcePartitions = mkEnableOption "forcing the defined partitions";
+
+      partitions = mkOption {
+        type = with types; attrsOf (submodule {
+          options = {
+            enable = mkEnableOption "the partition";
+            device = mkOption {
+              type = types.str;
+            };
+            fsType = mkOption {
+              type = types.str;
+            };
+            options = mkOption {
+              type = with types; listOf str;
+              default = [ "defaults" ];
+            };
+            autoResize = mkOption {
+              type = types.bool;
+              default = false;
+            };
+          };
+        });
+      };
+    };
+
     nix_channel = mkOption {
       type = types.str;
     };
@@ -68,14 +96,44 @@ with lib;
       '';
     };
 
-    org_config_dir_name = mkOption {
-      type = types.str;
-      default = "org-config";
-      readOnly = true;
-      description = ''
-        WARNING: when changing this value, you need to change the corresponding
-                 values in install.sh and modules/default.nix as well!
-      '';
+    org = {
+      config_dir_name = mkOption {
+        type = types.str;
+        default = "org-config";
+        readOnly = true;
+        description = ''
+          WARNING: when changing this value, you need to change the corresponding
+                   values in install.sh and modules/default.nix as well!
+        '';
+      };
+
+      # TODO: make mandatory
+      env_var_prefix = mkOption {
+        type = types.str;
+        default = "MSFOCB";
+      };
+
+      github_org = mkOption {
+        type = types.str;
+        default = "MSF-OCB";
+      };
+
+      repo_to_url = mkOption {
+        type = with types; functionTo str;
+        default = repo: ''git@github.com:${cfg.org.github_org}/${repo}.git'';
+      };
+
+      iso = {
+        menu_label = mkOption {
+          type = types.str;
+          default = "NixOS Rescue System";
+        };
+
+        file_label = mkOption {
+          type = types.str;
+          default = "nixos-rescue";
+        };
+      };
     };
 
     users_json_path = mkOption {
@@ -156,6 +214,33 @@ with lib;
       }
     ];
 
+    # Print a warning when the correct labels are not present to avoid
+    # an unbootable system.
+    warnings = let
+      mkWarningMsg = name: device:
+        "The ${name} partition is not correctly labelled! " +
+        "This installation will probably not boot!\n" +
+        "Missing device: ${device}";
+      labelCondition = device: ! builtins.pathExists device;
+      mkWarnings = msf_lib.compose [
+        (mapAttrsToList (name: conf: mkWarningMsg name conf.device))
+        (filterAttrs (_: conf: labelCondition conf.device))
+        msf_lib.filterEnabled
+      ];
+    in
+      mkWarnings cfg.partitions.partitions;
+
+    fileSystems = let
+      mkPartition = conf: { inherit (conf) device fsType options autoResize; };
+      mkPartitions = msf_lib.compose [
+                       (mapAttrs (_: mkPartition))
+                       msf_lib.filterEnabled
+                     ];
+      partitions = mkPartitions cfg.partitions.partitions;
+    in if cfg.partitions.forcePartitions
+       then mkForce partitions
+       else partitions;
+
     nixpkgs.overlays = let
       python_scripts_overlay = self: super: {
         ocb_python_scripts =
@@ -202,7 +287,7 @@ with lib;
       };
       variables = {
         EDITOR = "vim";
-        MSFOCB_SECRETS_DIRECTORY=cfg.secrets.dest_directory;
+        "${cfg.org.env_var_prefix}_SECRETS_DIRECTORY" = cfg.secrets.dest_directory;
       };
     };
 
@@ -227,7 +312,7 @@ with lib;
                          then cfg.private_key_source
                          else toString cfg.private_key_source;
     in {
-      nix_channel_msf = {
+      custom_nix_channel = {
         text = ''
           # We override the root nix channel with the one defined by settings.system.nix_channel
           echo "${cfg.nix_channel} nixos" > "/root/.nix-channels"

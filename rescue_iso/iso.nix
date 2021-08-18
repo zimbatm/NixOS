@@ -2,7 +2,9 @@
 
 with lib;
 
-{
+let
+  sys_cfg = config.settings.system;
+in {
 
   imports = [
     <nixpkgs/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix>
@@ -19,13 +21,17 @@ with lib;
     network.host_name = "rescue-iso";
     system = {
       isISO = true;
+      # We do not overwrite the ISO partitions
+      partitions = {
+        forcePartitions = mkForce false;
+        partitions = {};
+      };
       private_key_source = ../local/id_tunnel_iso;
       copy_private_key_to_store = true;
       diskSwap.enable = false;
     };
     boot.mode = "none";
     maintenance.enable = false;
-    services.prometheus.enable = false;
     reverse_tunnel.enable = true;
   };
 
@@ -48,9 +54,8 @@ with lib;
   system.extraDependencies = mkOverride 10 [];
 
   isoImage = {
-    isoName = mkForce "${config.isoImage.isoBaseName}-msfocb-rescue-${config.system.nixos.label}-${pkgs.stdenv.hostPlatform.system}.iso";
-    appendToMenuLabel = " MSF OCB rescue system";
+    isoName = mkForce "${config.isoImage.isoBaseName}-${sys_cfg.org.iso.file_label}-${config.system.nixos.label}-${pkgs.stdenv.hostPlatform.system}.iso";
+    appendToMenuLabel = " ${sys_cfg.org.iso.menu_label}";
   };
-
 }
 

@@ -164,7 +164,8 @@ with lib;
       spacesN = compose [ concatStrings (genList (const " ")) ];
     in (spacesN n) + str;
 
-    reset_git = { branch
+    reset_git = { url
+                , branch
                 , git_options
                 , indent ? 0 }: let
       git = "${pkgs.git}/bin/git";
@@ -173,32 +174,39 @@ with lib;
       mkGitCommandIndented = indent: git_options:
         compose [ (indentStr indent) (mkGitCommand git_options) ];
     in concatMapStringsSep "\n" (mkGitCommandIndented indent git_options) [
+      ''remote set-url origin "${url}"''
       # The following line is only used to avoid the warning emitted by git.
       # We will reset the local repo anyway and remove all local changes.
-      "config pull.rebase true"
-      "fetch origin ${branch}"
-      "checkout ${branch} --"
-      "reset --hard origin/${branch}"
-      "clean -d --force"
-      "pull"
+      ''config pull.rebase true''
+      ''fetch origin ${branch}''
+      ''checkout ${branch} --''
+      ''reset --hard origin/${branch}''
+      ''clean -d --force''
+      ''pull''
     ];
 
-    clone_and_reset_git = { clone_dir
+    # TODO: make config mandatory
+    clone_and_reset_git = { config ? null
+                          , clone_dir
                           , github_repo
                           , branch
                           , git_options ? []
-                          , indent ? 0 }: ''
+                          , indent ? 0 }: let
+        warn_msg = "WARNING: null config passed to clone_and_reset_git!";
+        repo_url = if config == null
+                   then trace warn_msg ''git@github.com:MSF-OCB/${github_repo}.git''
+                   else config.settings.system.org.repo_to_url github_repo;
+      in optionalString (config != null) ''
         if [ ! -d "${clone_dir}" ] || [ ! -d "${clone_dir}/.git" ]; then
           if [ -d "${clone_dir}" ]; then
             # The directory exists but is not a git clone
             ${pkgs.coreutils}/bin/rm --recursive --force "${clone_dir}"
           fi
           ${pkgs.coreutils}/bin/mkdir --parent "${clone_dir}"
-          ${pkgs.git}/bin/git \
-            clone "git@github.com:MSF-OCB/${github_repo}.git" \
-            "${clone_dir}"
+          ${pkgs.git}/bin/git clone "${repo_url}" "${clone_dir}"
         fi
         ${reset_git { inherit branch indent;
+                      url = repo_url;
                       git_options = git_options ++ [ "-C" ''"${clone_dir}"'' ]; }}
     '';
 
@@ -226,6 +234,7 @@ with lib;
 
       environment = let
         inherit (config.settings.system) private_key;
+        inherit (config.settings.system.org) env_var_prefix;
       in {
         # We need to set the NIX_PATH env var so that we can resolve <nixpkgs>
         # references when using nix-shell.
@@ -234,13 +243,13 @@ with lib;
                           "-i ${private_key} " +
                           "-o IdentitiesOnly=yes " +
                           "-o StrictHostKeyChecking=yes";
-        MSFOCB_SECRETS_DIRECTORY = secrets_dir;
-        MSFOCB_DEPLOY_DIR = deploy_dir;
+        "${env_var_prefix}_SECRETS_DIRECTORY" = secrets_dir;
+        "${env_var_prefix}_DEPLOY_DIR" = deploy_dir;
       };
       script = let
         docker_credentials_file = "${secrets_dir}/docker_private_repo_creds";
       in ''
-        ${clone_and_reset_git { inherit github_repo;
+        ${clone_and_reset_git { inherit config github_repo;
                                 clone_dir = deploy_dir;
                                 branch = git_branch; }}
 
