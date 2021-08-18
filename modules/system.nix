@@ -107,15 +107,12 @@ with (import ../msf_lib.nix);
         '';
       };
 
-      # TODO: make mandatory
       env_var_prefix = mkOption {
         type = types.str;
-        default = "MSFOCB";
       };
 
       github_org = mkOption {
         type = types.str;
-        default = "MSF-OCB";
       };
 
       repo_to_url = mkOption {

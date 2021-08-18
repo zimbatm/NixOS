@@ -185,17 +185,13 @@ with lib;
       ''pull''
     ];
 
-    # TODO: make config mandatory
-    clone_and_reset_git = { config ? null
+    clone_and_reset_git = { config
                           , clone_dir
                           , github_repo
                           , branch
                           , git_options ? []
                           , indent ? 0 }: let
-        warn_msg = "WARNING: null config passed to clone_and_reset_git!";
-        repo_url = if config == null
-                   then trace warn_msg ''git@github.com:MSF-OCB/${github_repo}.git''
-                   else config.settings.system.org.repo_to_url github_repo;
+        repo_url = config.settings.system.org.repo_to_url github_repo;
       in optionalString (config != null) ''
         if [ ! -d "${clone_dir}" ] || [ ! -d "${clone_dir}/.git" ]; then
           if [ -d "${clone_dir}" ]; then

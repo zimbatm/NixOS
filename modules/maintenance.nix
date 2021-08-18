@@ -43,21 +43,12 @@ in {
       '';
     };
 
-    # TODO: remove the defaults
     config_repos = {
       main = mkOption {
         type = types.submodule repoOpts;
-        default = {
-          branch = "master";
-          url = sys_cfg.org.repo_to_url "NixOS-config";
-        };
       };
       org = mkOption {
         type = types.submodule repoOpts;
-        default = {
-          branch = "master";
-          url = sys_cfg.org.repo_to_url "NixOS-OCB-config";
-        };
       };
     };
 
