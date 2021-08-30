@@ -21,6 +21,13 @@ let
         description = "The device to mount.";
       };
 
+      device_units = mkOption {
+        type        = with types; listOf str;
+        default     = [];
+        example     = [ "dev-disk-by\\x2did-dm\\x2dname\\x2dLVMVolGroup\\x2dnixos_data.device" ];
+        description = "Device units to wait for or be triggered by.";
+      };
+
       key_file = mkOption {
         type    = types.str;
         default = "${sys_cfg.secrets.dest_directory}/keyfile";
@@ -90,11 +97,14 @@ in {
     decrypted_name    = conf: "nixos_decrypted_${conf.name}";
     open_service_name = conf: "open_encrypted_${conf.name}";
 
-    mkService = conf: {
+    mkOpenService = conf: {
       enable      = conf.enable;
       description = "Open the encrypted ${conf.name} partition.";
       conflicts   = [ "shutdown.target" ];
       before      = [ "shutdown.target" ];
+      after       = conf.device_units;
+      wantedBy    = conf.device_units;
+      requires    = conf.device_units;
       restartIfChanged = false;
       unitConfig = {
         DefaultDependencies = "no";
@@ -172,14 +182,15 @@ in {
       options    = conf.mount_options;
       after      = [ "${open_service_name conf}.service" ];
       requires   = [ "${open_service_name conf}.service" ];
-      wantedBy   = [ "multi-user.target" ];
+      wantedBy   = [ "multi-user.target"
+                     "${open_service_name conf}.service" ];
       before     = conf.dependent_services;
       requiredBy = conf.dependent_services;
     };
 
-    mkServices    = mapAttrs' (_: conf: nameValuePair (open_service_name conf)
-                                                      (mkService conf));
-    mkMounts      = mapAttrsToList (_: conf: mkMount conf);
+    mkOpenServices = mapAttrs' (_: conf: nameValuePair (open_service_name conf)
+                                                       (mkOpenService conf));
+    mkMounts   = mapAttrsToList (_: conf: mkMount conf);
   in {
     settings.crypto.mounts = {
       opt = mkIf cfg.encrypted_opt.enable {
@@ -207,7 +218,7 @@ in {
         })
       ];
     in {
-      services = mkServices enabled;
+      services = mkOpenServices enabled;
       mounts   = mkMounts enabled ++ extra_mount_units;
     };
   };
