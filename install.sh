@@ -143,134 +143,6 @@ if [ "${USE_UEFI}" = true ] && [ ! -d "/sys/firmware/efi" ]; then
   exit 1
 fi
 
-# We update the nix channel to make sure that we install up-to-date packages
-echo "Updating the nix channel..."
-nix-channel --update
-
-if [ ! -f "/tmp/id_tunnel" ] || [ ! -f "/tmp/id_tunnel.pub" ]; then
-  echo "Generating a new SSH key pair for this host..."
-  ssh-keygen -a 100 \
-             -t ed25519 \
-             -N "" \
-             -C "" \
-             -f /tmp/id_tunnel
-  echo "SSH keypair generated."
-else
-  # Make sure that we have the right permissions
-  chmod 0400 /tmp/id_tunnel
-fi
-
-# Check whether we can authenticate to GitHub using this server's key
-(
-  set +e
-
-  function test_auth() {
-    nix-shell --packages git --run "git -c core.sshCommand='ssh -F none -o IdentitiesOnly=yes -i /tmp/id_tunnel' \
-                                        ls-remote ${config_repo} > /dev/null 2>&1"
-  }
-
-  echo "Trying to authenticate to GitHub..."
-  test_auth
-  can_authenticate="${?}"
-
-  if [ "${can_authenticate}" -ne "0" ]; then
-    echo -e "\nThis server's SSH key does not give us access to GitHub."
-    echo    "Please add the following public key to the json/tunnels.json"
-    echo -e "file in the NixOS-OCB-config repo:\n"
-    cat /tmp/id_tunnel.pub
-    echo -e "\nThe installation will automatically continue once the key"
-    echo    "has been added to GitHub and the deployment actions have"
-    echo    "completed."
-    echo -e "\nIf you want me to generate a new key pair instead, then"
-    echo    "remove /tmp/id_tunnel and /tmp/id_tunnel.pub and restart"
-    echo    "the installer. You will then see this message again, and"
-    echo -e "you will need to add the newly generated key to GitHub."
-    echo -e "\nThe installer will continue once you have added the key"
-    echo -e "to GitHub and the deployment actions have successfully run..."
-
-    while [ "${can_authenticate}" -ne "0" ]; do
-      sleep 5
-      test_auth
-      can_authenticate="${?}"
-    done
-  fi
-  echo "Successfully authenticated to GitHub."
-)
-
-# Set some global Git settings
-nix-shell --packages git --run "git config --global pull.rebase true"
-nix-shell --packages git --run "git config --global user.name 'OCB NixOS Robot'"
-nix-shell --packages git --run "git config --global user.email 'nixos-ocb@users.noreply.github.com'"
-nix-shell --packages git --run "git config --global core.sshCommand 'ssh -i /tmp/id_tunnel'"
-
-# Commit a new encryption key to GitHub, if one does not exist yet
-if [ "${CREATE_DATA_PART}" = true ]; then
-  nixos_dir="/tmp/nixos/"
-  config_dir="${nixos_dir}/org-config/"
-  secrets_dir="${MSFOCB_SECRETS_DIRECTORY:-"/run/.secrets/"}"
-
-  # Clean up potential left-over directories
-  if [ -e "${nixos_dir}" ]; then
-    rm --recursive --force "${nixos_dir}"
-  fi
-  if [ -e "${secrets_dir}" ]; then
-    rm --recursive --force "${secrets_dir}"
-  fi
-
-  nix-shell --packages git --run "git clone ${main_repo} \
-                                      ${nixos_dir}"
-  nix-shell --packages git --run "git clone ${config_repo} \
-                                      ${config_dir}"
-
-  function decrypt_secrets() {
-    mkdir --parents "${secrets_dir}"
-    nix-shell "${nixos_dir}"/scripts/python_nixostools/shell.nix \
-              --run "decrypt_server_secrets \
-                       --server_name ${TARGET_HOSTNAME} \
-                       --secrets_path ${config_dir}/secrets/generated \
-                       --output_path ${secrets_dir} \
-                       --private_key_file /tmp/id_tunnel > /dev/null"
-  }
-
-  decrypt_secrets
-  keyfile="${secrets_dir}/keyfile"
-  if [ ! -f "${keyfile}" ]; then
-    nix-shell "${nixos_dir}"/scripts/python_nixostools/shell.nix \
-              --run "add_encryption_key \
-                       --hostname ${TARGET_HOSTNAME} \
-                       --secrets_file ${config_dir}/secrets/nixos_encryption-secrets.yml"
-
-    random_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10)
-    branch_name="installer_commit_enc_key_${TARGET_HOSTNAME}_${random_id}"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        checkout -b ${branch_name}"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        add secrets/nixos_encryption-secrets.yml"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        commit \
-                                        --message 'Commit encryption key for ${TARGET_HOSTNAME}.'"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        push -u origin ${branch_name}"
-
-    echo -e "\n\nThe encryption key for this server was committed to GitHub"
-    echo -e "Please go to the following link to create a pull request:"
-    echo -e "\nhttps://github.com/MSF-OCB/NixOS-OCB-config/pull/new/${branch_name}\n"
-    echo -e "The installer will continue once the pull request has been merged into master."
-
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        checkout master"
-
-    while [ ! -f "${keyfile}" ]; do
-      nix-shell --packages git --run "git -C ${config_dir} \
-                                          pull > /dev/null 2>&1"
-      decrypt_secrets
-      if [ ! -f "${keyfile}" ]; then
-        sleep 10
-      fi
-    done
-  fi
-fi
-
 detect_swap="$(swapon | grep "${swapfile}" > /dev/null 2>&1; echo $?)"
 if [ "${detect_swap}" -eq "0" ]; then
   swapoff "${swapfile}"
@@ -284,6 +156,7 @@ fi
 
 cryptsetup close nixos_data_decrypted || true
 vgremove --force LVMVolGroup || true
+# We try both GPT and MBR style commands to wipe existing PVs.
 # If the existing partition table is GPT, we use the partlabel
 pvremove /dev/disk/by-partlabel/nixos_lvm || true
 # If the existing partition table is MBR, we need to use direct addressing
@@ -361,10 +234,151 @@ chmod 0600 "${swapfile}"
 mkswap "${swapfile}"
 swapon "${swapfile}"
 
+# For the ISO, the nix store is mounted using tmpfs with default options,
+# meaning that its size is limited to 50% of physical memory.
+# On machines with low memory (< 6GB), this can cause issues.
+# Now that we have 2G of swap space, and ZRAM swap enabled,
+# we can increase the size of the nix store a bit for those machines.
+total_mem=$(grep 'MemTotal:' /proc/meminfo | awk -F ' ' '{ print $2; }')
+threshold_mem=$((6 * 1000 * 1000))
+if [ "${total_mem}" -lt ${threshold_mem} ]; then
+  mount --options remount,size=3G /nix/.rw-store
+fi
+
+# We update the nix channel to make sure that we install up-to-date packages
+echo "Updating the nix channel..."
+nix-channel --update
+
+if [ ! -f "/tmp/id_tunnel" ] || [ ! -f "/tmp/id_tunnel.pub" ]; then
+  echo "Generating a new SSH key pair for this host..."
+  ssh-keygen -a 100 \
+             -t ed25519 \
+             -N "" \
+             -C "" \
+             -f /tmp/id_tunnel
+  echo "SSH keypair generated."
+else
+  # Make sure that we have the right permissions
+  chmod 0400 /tmp/id_tunnel
+fi
+
+# Check whether we can authenticate to GitHub using this server's key
+(
+  set +e
+
+  function test_auth() {
+    nix-shell --packages git --run "git -c core.sshCommand='ssh -F none -o IdentitiesOnly=yes -i /tmp/id_tunnel' \
+                                        ls-remote ${config_repo} > /dev/null 2>&1"
+  }
+
+  echo "Trying to authenticate to GitHub..."
+  test_auth
+  can_authenticate="${?}"
+
+  if [ "${can_authenticate}" -ne "0" ]; then
+    echo -e "\nThis server's SSH key does not give us access to GitHub."
+    echo    "Please add the following public key to the json/tunnels.json"
+    echo -e "file in the NixOS-OCB-config repo:\n"
+    cat /tmp/id_tunnel.pub
+    echo -e "\nThe installation will automatically continue once the key"
+    echo    "has been added to GitHub and the deployment actions have"
+    echo    "completed."
+    echo -e "\nIf you want me to generate a new key pair instead, then"
+    echo    "remove /tmp/id_tunnel and /tmp/id_tunnel.pub and restart"
+    echo    "the installer. You will then see this message again, and"
+    echo -e "you will need to add the newly generated key to GitHub."
+    echo -e "\nThe installer will continue once you have added the key"
+    echo -e "to GitHub and the deployment actions have successfully run..."
+
+    while [ "${can_authenticate}" -ne "0" ]; do
+      sleep 5
+      test_auth
+      can_authenticate="${?}"
+    done
+  fi
+  echo "Successfully authenticated to GitHub."
+)
+
+# Set some global Git settings
+nix-shell --packages git --run "git config --global pull.rebase true"
+nix-shell --packages git --run "git config --global user.name 'OCB NixOS Robot'"
+nix-shell --packages git --run "git config --global user.email 'nixos-ocb@users.noreply.github.com'"
+nix-shell --packages git --run "git config --global core.sshCommand 'ssh -i /tmp/id_tunnel'"
+
+# Commit a new encryption key to GitHub, if one does not exist yet
+if [ "${CREATE_DATA_PART}" = true ]; then
+  nixos_dir="/mnt/etc/nixos/"
+  config_dir="${nixos_dir}/org-config/"
+  secrets_dir="${MSFOCB_SECRETS_DIRECTORY:-"/run/.secrets/"}"
+
+  # Clean up potential left-over directories
+  if [ -e "${nixos_dir}" ]; then
+    rm --recursive --force "${nixos_dir}"
+  fi
+  if [ -e "${secrets_dir}" ]; then
+    rm --recursive --force "${secrets_dir}"
+  fi
+
+  nix-shell --packages git --run "git clone --filter=blob:none ${main_repo} \
+                                                               ${nixos_dir}"
+  nix-shell --packages git --run "git clone --filter=blob:none ${config_repo} \
+                                                               ${config_dir}"
+
+  function decrypt_secrets() {
+    mkdir --parents "${secrets_dir}"
+    nix-shell "${nixos_dir}"/scripts/python_nixostools/shell.nix \
+              --run "decrypt_server_secrets \
+                       --server_name ${TARGET_HOSTNAME} \
+                       --secrets_path ${config_dir}/secrets/generated \
+                       --output_path ${secrets_dir} \
+                       --private_key_file /tmp/id_tunnel > /dev/null"
+  }
+
+  decrypt_secrets
+  keyfile="${secrets_dir}/keyfile"
+  if [ ! -f "${keyfile}" ]; then
+    nix-shell "${nixos_dir}"/scripts/python_nixostools/shell.nix \
+              --run "add_encryption_key \
+                       --hostname ${TARGET_HOSTNAME} \
+                       --secrets_file ${config_dir}/secrets/nixos_encryption-secrets.yml"
+
+    random_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10)
+    branch_name="installer_commit_enc_key_${TARGET_HOSTNAME}_${random_id}"
+    nix-shell --packages git --run "git -C ${config_dir} \
+                                        checkout -b ${branch_name}"
+    nix-shell --packages git --run "git -C ${config_dir} \
+                                        add secrets/nixos_encryption-secrets.yml"
+    nix-shell --packages git --run "git -C ${config_dir} \
+                                        commit \
+                                        --message 'Commit encryption key for ${TARGET_HOSTNAME}.'"
+    nix-shell --packages git --run "git -C ${config_dir} \
+                                        push -u origin ${branch_name}"
+
+    echo -e "\n\nThe encryption key for this server was committed to GitHub"
+    echo -e "Please go to the following link to create a pull request:"
+    echo -e "\nhttps://github.com/MSF-OCB/NixOS-OCB-config/pull/new/${branch_name}\n"
+    echo -e "The installer will continue once the pull request has been merged into master."
+
+    nix-shell --packages git --run "git -C ${config_dir} \
+                                        checkout master"
+
+    while [ ! -f "${keyfile}" ]; do
+      nix-shell --packages git --run "git -C ${config_dir} \
+                                          pull > /dev/null 2>&1"
+      decrypt_secrets
+      if [ ! -f "${keyfile}" ]; then
+        sleep 10
+      fi
+    done
+  fi
+fi
+
 rm --recursive --force /mnt/etc/
-nix-shell --packages git --run "git clone ${main_repo} \
+nix-shell --packages git --run "git clone --filter=blob:none \
+                                    ${main_repo} \
                                     /mnt/etc/nixos/"
-nix-shell --packages git --run "git clone ${config_repo} \
+nix-shell --packages git --run "git clone --filter=blob:none \
+                                    ${config_repo} \
                                     /mnt/etc/nixos/org-config"
 nixos-generate-config --root /mnt --no-filesystems
 ln --symbolic org-config/hosts/"${TARGET_HOSTNAME}".nix /mnt/etc/nixos/settings.nix
