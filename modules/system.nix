@@ -283,6 +283,7 @@ with (import ../msf_lib.nix);
         whereami = "curl ipinfo.io";
       };
       variables = {
+        HOSTNAME = config.networking.hostName;
         EDITOR = "vim";
         "${cfg.org.env_var_prefix}_SECRETS_DIRECTORY" = cfg.secrets.dest_directory;
       };
