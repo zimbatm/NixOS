@@ -42,7 +42,7 @@ in
 
     version = mkOption {
       type = types.str;
-      default = "2.4";
+      default = "2.5";
       readOnly = true;
     };
 
