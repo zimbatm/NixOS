@@ -206,7 +206,7 @@ in {
 
     mkOpenServices = mapAttrs' (_: conf: nameValuePair (open_service_name conf)
                                                        (mkOpenService conf));
-    mkMounts   = mapAttrsToList (_: conf: mkMount conf);
+    mkMounts = mapAttrsToList (_: conf: mkMount conf);
   in {
     settings.crypto.mounts = {
       opt = mkIf cfg.encrypted_opt.enable {
@@ -221,18 +221,16 @@ in {
     };
     systemd = let
       enabled = msf_lib.filterEnabled cfg.mounts;
-      extra_mount_units = [
-        (mkIf cfg.encrypted_opt.enable {
-          enable   = true;
-          what     = "/opt/.home";
-          where    = "/home";
-          type     = "none";
-          options  = "bind";
-          after    = [ "opt.mount" ];
-          requires = [ "opt.mount" ];
-          wantedBy = [ "multi-user.target" ];
-        })
-      ];
+      extra_mount_units = optional cfg.encrypted_opt.enable {
+        enable   = cfg.encrypted_opt.enable;
+        what     = "/opt/.home";
+        where    = "/home";
+        type     = "none";
+        options  = "bind";
+        after    = [ "opt.mount" ];
+        requires = [ "opt.mount" ];
+        wantedBy = [ "multi-user.target" ];
+      };
     in {
       services = mkOpenServices enabled;
       mounts   = mkMounts enabled ++ extra_mount_units;
