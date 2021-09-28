@@ -113,6 +113,7 @@ in {
       serviceConfig = {
         User = "root";
         Type = "oneshot";
+        Restart = "on-failure";
         RemainAfterExit = true;
         ExecStop = ''
           ${pkgs.cryptsetup}/bin/cryptsetup close --deferred ${decrypted_name conf}
@@ -171,6 +172,21 @@ in {
                                               --key-file /keyfile
           fi
         fi
+
+        # We wait to exit from this script until
+        # the decrypted device has been created by udev
+        dev="/dev/mapper/${decrypted_name conf}"
+        echo "Making sure that ''${dev} exists before exiting..."
+        for countdown in $( seq 60 -1 0 ); do
+          if [ -b "''${dev}" ]; then
+            exit 0
+          fi
+          echo "Waiting for ''${dev}... (''${countdown})"
+          sleep 5
+          udevadm settle --exit-if-exists="''${dev}"
+        done
+        echo "Device node could not be found, exiting..."
+        exit 1
       '';
     };
     mkMount = conf: {
