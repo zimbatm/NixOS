@@ -359,9 +359,12 @@ with (import ../msf_lib.nix);
       };
       decrypt_secrets = {
         text = let
-          permissions = concatMapStringsSep ","
-                                            (group: "group:${group}:rX")
-                                            cfg.secrets.allow_groups;
+          # We make an ACL with default permissions and add an extra rule
+          # for each group defined as having access
+          acl = concatStringsSep "," (
+                  ["u::rwX,g::r-X,o::---"] ++
+                  map (group: "group:${group}:rX")
+                      cfg.secrets.allow_groups);
           mkRemoveOldDir = dir: ''
             # Delete the old secrets dir which is not used anymore
             # We maintain it as a link for now for backwards compatibility,
@@ -394,34 +397,14 @@ with (import ../msf_lib.nix);
           ${pkgs.coreutils}/bin/chown --recursive root:root "${cfg.secrets.dest_directory}"
           ${pkgs.coreutils}/bin/chmod --recursive u=rwX,g=,o= "${cfg.secrets.dest_directory}"
           # Use an ACL to give access to members of the wheel and docker groups
-          ${pkgs.acl}/bin/setfacl --recursive \
-                                  --modify ${permissions} \
-                                  "${cfg.secrets.dest_directory}"
+          ${pkgs.acl}/bin/setfacl \
+            --recursive \
+            --set "${acl}" \
+            "${cfg.secrets.dest_directory}"
           echo "decrypted the server secrets"
         '';
         deps = [ "copy_tunnel_key" ];
       };
-#      opt_acl = {
-#        text = ''
-#          # We iterate over all directories that are not hidden.
-#          # Prefix directories with a dot to exclude them.
-#          for dir in $(ls /opt/); do
-#            if [ -d "/opt/''${dir}" ] && \
-#               [ ! "containerd" = "''${dir}" ] && \
-#               [ ! "lost+found" = "''${dir}" ]; then
-#              chown --recursive root:root "/opt/''${dir}"
-#              setfacl -R --set "u::rwX,g::r-X,o::---,\
-#                                user:root:rwX,\
-#                                group:wheel:rwX,\
-#                                d:u::rwX,d:g::r-X,d:o::---, \
-#                                d:user:root:rwX,\
-#                                d:group:wheel:rwX" \
-#                                "/opt/''${dir}"
-#            fi
-#          done
-#        '';
-#        deps = [ "specialfs" "users" ];
-#      };
     };
 
     systemd = {
@@ -434,6 +417,66 @@ with (import ../msf_lib.nix);
         AllowSuspend=no
         AllowHibernation=no
       '';
+
+      services = {
+        set_opt_permissions = {
+          enable      = true;
+          description = "Set the ACLs on /opt.";
+          # We only run this service when /opt is being mounted.
+          after       = [ "opt.mount" ];
+          wantedBy    = [ "opt.mount" ];
+          serviceConfig = {
+            User = "root";
+            Type = "oneshot";
+          };
+          script = let
+            containerd = "containerd";
+            acl = concatStringsSep "," [
+                    "u::rwX,g::r-X,o::---"
+                    "user:root:rwX"
+                    "group:wheel:rwX"
+                    "d:u::rwX,d:g::r-X,d:o::---"
+                    "d:user:root:rwX"
+                    "d:group:wheel:rwX"
+                  ];
+          in ''
+            # Ensure that /opt actually exists
+            if [ ! -d /opt ]; then
+              echo "/opt does not exist!"
+              exit 1
+            fi
+
+            # Root and wheel have full permissions on /opt
+            ${pkgs.coreutils}/bin/chown root:wheel "/opt/"
+            ${pkgs.coreutils}/bin/chmod u=rwX,g=rwX,o= "/opt/"
+
+            ${pkgs.coreutils}/bin/chown root:root "/opt/${containerd}"
+            ${pkgs.coreutils}/bin/chmod u=rwX,g=X,o=X "/opt/${containerd}"
+
+            ${pkgs.coreutils}/bin/chown root:root "/opt/.docker"
+            ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.docker"
+
+            ${pkgs.coreutils}/bin/chown root:root "/opt/.home"
+            ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.home"
+
+            # We iterate over all directories that are not hidden.
+            # Prefix directories with a dot to exclude them.
+            # For each dir we apply the ACL defined above.
+            for dir in $(ls /opt/); do
+              if [ -d "/opt/''${dir}" ] && \
+                 [ ! "${containerd}" = "''${dir}" ] && \
+                 [ ! "lost+found"    = "''${dir}" ]; then
+                ${pkgs.coreutils}/bin/chown --recursive root:root "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chmod --recursive u=rwX,g=,o= "/opt/''${dir}"
+                ${pkgs.acl}/bin/setfacl \
+                  --recursive \
+                  --set "${acl}" \
+                  "/opt/''${dir}"
+              fi
+            done
+          '';
+        };
+      };
 
       user.services.cleanup_nixenv = {
         enable = true;
