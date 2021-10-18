@@ -70,6 +70,7 @@ with lib;
     ifPathExists = path: optional (builtins.pathExists path) path;
 
     traceImportJSON = compose [
+      (filterAttrsRecursive (k: _: k != "_comment"))
       importJSON
       (traceValFn (f: "Loading file ${toString f}..."))
     ];
