@@ -60,6 +60,7 @@ with lib;
       key_patterns     = {
         ssh-ed25519         = "^ssh-ed25519 ${key_data_pattern}{68}$";
         ecdsa-sha2-nistp256 = "^ecdsa-sha2-nistp256 ${key_data_pattern}{139}=$";
+        ssh-rsa             = "^ssh-rsa ${key_data_pattern}{372,}={0,2}$";
       };
       pub_key_pattern  = concatStringsSep "|" (attrValues key_patterns);
       description      =
@@ -83,14 +84,15 @@ with lib;
         user_cfg = config.settings.users;
 
         # Function to define a user but override the name instead of taking the variable name
-        withName = name: role: role // { inherit name; };
+        withName = name: role:
+          role // { inherit name;
+                    inherit (user_cfg.users.${name}) public_keys; };
 
         # Function to create a user with a given role as an alias of an existing user
         alias = role: from:
           role //
           {
-            inherit (user_cfg.users.${from}) enable;
-            keyFileName = from;
+            inherit (user_cfg.users.${from}) enable public_keys;
           };
 
         # Function to create a tunnel user as an alias of an existing user

@@ -137,12 +137,20 @@ with (import ../msf_lib.nix);
       type = types.path;
     };
 
+    # TODO: remove the default
+    keys_json_path = mkOption {
+      type = types.path;
+      default = ../org-config/json/keys.json;
+    };
+
     tunnels_json_dir_path = mkOption {
       type = with types; nullOr path;
     };
 
+    # TODO: remove this option
     pub_keys_path = mkOption {
       type = types.path;
+      default = ./org-config/keys;
     };
 
     secrets = {
@@ -506,7 +514,7 @@ with (import ../msf_lib.nix);
         hostKeyAlgorithms = [ "ssh-ed25519" "ssh-rsa" ];
         knownHosts.github = {
           hostNames = [ "github.com" "ssh.github.com" ];
-          publicKeyFile = cfg.pub_keys_path + "/servers/github";
+          publicKeyFile = ../data/github_public_key;
         };
         extraConfig = ''
           # Some internet providers block port 22,

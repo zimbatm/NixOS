@@ -56,8 +56,10 @@ with (import ../msf_lib.nix);
     settings = {
       users.users = let
         users_json_path = sys_cfg.users_json_path;
-        json_data       = msf_lib.traceImportJSON users_json_path;
+        users_json_data = msf_lib.traceImportJSON users_json_path;
         remoteTunnel    = msf_lib.user_roles.remoteTunnel;
+        keys_json_path  = sys_cfg.keys_json_path;
+        keys_json_data  = msf_lib.traceImportJSON keys_json_path;
 
         /*
           Load the list at path in an attribute set and convert it to
@@ -79,10 +81,10 @@ with (import ../msf_lib.nix);
 
         remoteTunnelUsers = listToAttrs_const [ "users" "remote_tunnel" ]
                                               remoteTunnel
-                                              [] json_data;
+                                              [] users_json_data;
         enabledUsers      = listToAttrs_const [ "users" "per-host" hostName "enable" ]
                                               { enable = true; }
-                                              [] json_data;
+                                              [] users_json_data;
 
         enabledUsersByRoles = let
           # Given the host name and the json data,
@@ -96,11 +98,12 @@ with (import ../msf_lib.nix);
             listToAttrs_const [ "users" "roles" role ]
                               { enable = true; }
                               (onRoleAbsent role hostName)
-                              json_data;
+                              users_json_data;
           activateRoles = hostName: map (activateRole hostName);
-        in activateRoles hostName (enabledRoles hostName json_data);
+        in activateRoles hostName (enabledRoles hostName users_json_data);
       in msf_lib.recursiveMerge ([ remoteTunnelUsers
-                                   enabledUsers ] ++
+                                   enabledUsers
+                                   keys_json_data.keys ] ++
                                    enabledUsersByRoles);
 
       reverse_tunnel.tunnels = let

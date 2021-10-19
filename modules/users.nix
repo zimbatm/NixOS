@@ -36,8 +36,9 @@ let
         default = false;
       };
 
-      keyFileName = mkOption {
-        type = types.str;
+      public_keys = mkOption {
+        type    = with types; listOf msf_lib.pub_key_type;
+        default = [];
       };
 
       forceCommand = mkOption {
@@ -47,9 +48,6 @@ let
     };
     config = {
       name = mkDefault name;
-      # We need to actually resolve the name from the config,
-      # the default value above might have been overridden.
-      keyFileName = mkDefault cfg.users.${name}.name;
     };
   };
 
@@ -129,7 +127,8 @@ in {
   };
 
   config = let
-    toKeyPath = user: sys_cfg.pub_keys_path + ("/" + user.keyFileName);
+    public_keys_for = user: map (key: "${key} ${user.name}")
+                                user.public_keys;
   in {
     settings.users.users.${cfg.robot.username} =
       mkIf cfg.robot.enable msf_lib.user_roles.globalAdmin;
@@ -164,18 +163,23 @@ in {
                          (optional user.canTunnel cfg.fwd-tunnel-group) ++
                          (optional user.hasShell  cfg.shell-user-group);
           shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.nologin;
-          openssh.authorizedKeys.keyFiles = [ (toKeyPath user) ];
+          openssh.authorizedKeys.keys = public_keys_for user;
         };
         mkUsers = msf_lib.compose [ (mapAttrs mkUser)
                                     msf_lib.filterEnabled ];
       in mkUsers cfg.users;
     };
 
-    settings.reverse_tunnel.relay.tunneller.keyFiles = let
-      mkKeyFiles  = msf_lib.compose [ unique
-                                      (mapAttrsToList (_: user: toKeyPath user))
-                                      (filterAttrs (_: user: user.canTunnel)) ];
-    in mkKeyFiles cfg.users;
+    settings.reverse_tunnel.relay.tunneller.keys = let
+      mkKeys = msf_lib.compose [ # Filter out any duplicates
+                                 unique
+                                 # Flatten this list of list to get
+                                 # a list containing all keys
+                                 flatten
+                                 # Map every user to a list of its public keys
+                                 (mapAttrsToList (_: user: public_keys_for user))
+                                 (filterAttrs (_: user: user.canTunnel)) ];
+    in mkKeys cfg.users;
 
     security.sudo.extraRules = let
       addDenyAll = cmds: [ "!ALL" ] ++ cmds;

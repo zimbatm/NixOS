@@ -100,10 +100,10 @@ in {
       relay = {
         enable = mkEnableOption "the relay server functionality";
 
-        tunneller.keyFiles = mkOption {
-          type    = with types; listOf path;
-          default = [ ];
-          description = "The list of key files which are allowed to access " +
+        tunneller.keys = mkOption {
+          type    = with types; listOf str;
+          default = [];
+          description = "The list of keys which are allowed to access " +
                         "the tunneller user to create tunnels.";
         };
       };
@@ -205,7 +205,7 @@ in {
         # The fwd-tunnel-group is required to be able to proxy through the relay
         extraGroups  = [ config.settings.users.ssh-group
                          config.settings.users.fwd-tunnel-group ];
-        openssh.authorizedKeys.keyFiles = cfg.relay.tunneller.keyFiles;
+        openssh.authorizedKeys.keys = cfg.relay.tunneller.keys;
       };
     };
 
