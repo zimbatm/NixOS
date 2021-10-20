@@ -52,8 +52,10 @@ class EncryptedSecrets:
 
   def export_secrets(self) -> Mapping[str,str]:
     server_name = 'server_name'
-    # Throw an assertion error if ever the name of the attribute is changed
-    # without it being updated here.
+    # Since we need to hardcode the name of the attribute here,
+    # we throw an assertion error if ever the name of the attribute
+    # would be changed without it being updated in this function.
+    # There doesn't seem to be a way to use reflection
     assert hasattr(self, server_name)
     return { k:v for k,v in dataclasses.asdict(self).items()
                  if k != server_name }
@@ -81,12 +83,11 @@ def get_secrets(secrets) -> Iterable[ServerSecretData]:
                       f'the mandatory fields "{PATH_KEY}", "{CONTENT_KEY}" and "{SERVERS_KEY}".')
     return secret
 
+  # We filter the secret to only contain the whitelisted keys.
   def filter_secret(secret: Mapping) -> Mapping:
-    def filter_keys(item):
-      key = item[0]
-      return key in [ PATH_KEY, CONTENT_KEY ]
-
-    return dict(filter(filter_keys, secret.items()))
+    whitelist = [ PATH_KEY, CONTENT_KEY ]
+    return { k:v for k,v in secret.items()
+                 if k in whitelist }
 
   # Build a mapping from every server to its secrets
   def reducer(server_dict: Mapping[str, ServerSecretData],
@@ -124,16 +125,32 @@ def encrypt_data(data: PaddedServerSecretData,
 # The only information still communicated by the ciphertext,
 # is the length of the original plaintext.
 # In order to hide the relative amount of secrets accessible by every server,
-# we padd the plaintexts with newlines such that they all have equal length.
+# we pad the plaintexts with newlines such that they all have equal length.
 # It is important to look at the length in bytes, rather than
 # the length in characters, to account for variable-width encoding.
 def pad_secrets(data: Iterable[ServerSecretData]) -> Iterable[PaddedServerSecretData]:
+  # We round the max length up to the nearest 10**exp
+  # So for instance, for exp = 3, 24869 -> 25000
+  # Upper is the part > 10**exp, so for our example
+  #   upper(24869) = 20000
+  # For lower, we strip everything > 10**exp and then round it up to
+  # the nearest multiple of 10**exp, so for our example
+  #   lower(24869) = 5000
+  def round_up(i: int, exp: int = 3) -> int:
+    if i % 10**exp != 0:
+      exp_high = exp + 1
+      upper: int = i - i % 10**exp_high
+      lower: int = ((i - upper) // 10**exp + 1) * 10**exp
+      return upper + lower
+    else:
+      return i
+
   def reducer(length: int, data: ServerSecretData) -> int:
     return max(length, len(data.str_secrets().encode(UTF8)))
 
-  max_len = reduce(reducer, data, 0)
+  padding_len = round_up(reduce(reducer, data, 0))
 
-  pad = lambda secrets: secrets.ljust(max_len, '\n')
+  pad = lambda secrets: secrets.ljust(padding_len, '\n')
   return [ PaddedServerSecretData(server_name = secret_data.server_name,
                                   padded_secrets = pad(secret_data.str_secrets()))
            for secret_data in data ]
@@ -141,7 +158,7 @@ def pad_secrets(data: Iterable[ServerSecretData]) -> Iterable[PaddedServerSecret
 
 def write_secrets(encrypted_secrets_list: List[EncryptedSecrets],
                   output_path: str) -> bool:
-  print(f'Writing generated secrets...')
+  print(f'Writing generated secrets to {output_path}...')
   content = { encrypted_secrets.server_name: encrypted_secrets.export_secrets()
               for encrypted_secrets in encrypted_secrets_list }
 
@@ -152,7 +169,7 @@ def write_secrets(encrypted_secrets_list: List[EncryptedSecrets],
     print(f'ERROR : failed to write generated secrets file')
     print(traceback.format_exc())
     return False
-  print(f'Wrote generated secrets')
+  print(f'Successfully wrote generated secrets')
   return True
 
 
