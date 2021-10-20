@@ -137,20 +137,12 @@ with (import ../msf_lib.nix);
       type = types.path;
     };
 
-    # TODO: remove the default
     keys_json_path = mkOption {
       type = types.path;
-      default = ../org-config/json/keys.json;
     };
 
     tunnels_json_dir_path = mkOption {
       type = with types; nullOr path;
-    };
-
-    # TODO: remove this option
-    pub_keys_path = mkOption {
-      type = types.path;
-      default = ./org-config/keys;
     };
 
     secrets = {
