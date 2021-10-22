@@ -431,42 +431,51 @@ with (import ../msf_lib.nix);
           };
           script = let
             containerd = "containerd";
+            # TODO: make the groups configurable, currently wheel and docker
             acl = concatStringsSep "," [
                     "u::rwX,g::r-X,o::---"
                     "user:root:rwX"
                     "group:wheel:rwX"
+                    "group:docker:rwX"
                     "d:u::rwX,d:g::r-X,d:o::---"
                     "d:user:root:rwX"
                     "d:group:wheel:rwX"
+                    "d:group:docker:rwX"
                   ];
           in ''
             # Ensure that /opt actually exists
-            if [ ! -d /opt ]; then
+            if [ ! -d "/opt" ]; then
               echo "/opt does not exist!"
               exit 1
             fi
 
-            # Root and wheel have full permissions on /opt
-            ${pkgs.coreutils}/bin/chown root:wheel "/opt/"
+            # Root owns /opt, and we apply the ACL defined above
+            ${pkgs.coreutils}/bin/chown root:root      "/opt/"
             ${pkgs.coreutils}/bin/chmod u=rwX,g=rwX,o= "/opt/"
+            ${pkgs.acl}/bin/setfacl \
+              --set "${acl}" \
+              "/opt/"
 
-            ${pkgs.coreutils}/bin/chown root:root "/opt/${containerd}"
+            # Special cases
+            ${pkgs.coreutils}/bin/chown root:root     "/opt/${containerd}"
             ${pkgs.coreutils}/bin/chmod u=rwX,g=X,o=X "/opt/${containerd}"
 
-            ${pkgs.coreutils}/bin/chown root:root "/opt/.docker"
+            ${pkgs.coreutils}/bin/chown root:root       "/opt/.docker"
             ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.docker"
 
-            ${pkgs.coreutils}/bin/chown root:root "/opt/.home"
+            ${pkgs.coreutils}/bin/chown root:root       "/opt/.home"
             ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.home"
 
-            # We iterate over all directories that are not hidden.
+            # We iterate over all directories that are not hidden,
+            # except containerd and lost+found.
             # Prefix directories with a dot to exclude them.
-            # For each dir we apply the ACL defined above.
+            # For each dir we set ownership to root:root and
+            # recursively apply the ACL defined above.
             for dir in $(ls /opt/); do
               if [ -d "/opt/''${dir}" ] && \
                  [ ! "${containerd}" = "''${dir}" ] && \
                  [ ! "lost+found"    = "''${dir}" ]; then
-                ${pkgs.coreutils}/bin/chown --recursive root:root "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chown --recursive root:root   "/opt/''${dir}"
                 ${pkgs.coreutils}/bin/chmod --recursive u=rwX,g=,o= "/opt/''${dir}"
                 ${pkgs.acl}/bin/setfacl \
                   --recursive \
