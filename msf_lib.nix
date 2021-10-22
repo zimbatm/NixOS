@@ -90,8 +90,7 @@ with lib;
 
         # Function to create a user with a given role as an alias of an existing user
         alias = role: from:
-          role //
-          {
+          role // {
             inherit (user_cfg.users.${from}) enable public_keys;
           };
 
@@ -113,6 +112,14 @@ with lib;
 
       # Global admin users have the same rights as admin users and are enabled by default
       globalAdmin = admin // { enable = true; };
+
+      dockerAdmin = remoteTunnelWithShell // {
+        extraGroups = [ "docker" "systemd-journal" ];
+      };
+
+      localDockerAdmin = localShell // {
+        extraGroups = [ "docker" "systemd-journal" ];
+      };
 
       remoteTunnelWithShell = {
         enable      = mkDefault false;
@@ -147,8 +154,8 @@ with lib;
                                               '';
                                             };
     in {
-      inherit user_lib admin globalAdmin remoteTunnelWithShell
-              localShell remoteTunnel remoteTunnelMonitor;
+      inherit user_lib admin globalAdmin dockerAdmin localDockerAdmin
+              remoteTunnelWithShell localShell remoteTunnel remoteTunnelMonitor;
     };
 
     # Compatibility layer around
