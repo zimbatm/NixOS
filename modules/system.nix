@@ -475,8 +475,8 @@ with (import ../msf_lib.nix);
               if [ -d "/opt/''${dir}" ] && \
                  [ ! "${containerd}" = "''${dir}" ] && \
                  [ ! "lost+found"    = "''${dir}" ]; then
-                ${pkgs.coreutils}/bin/chown --recursive root:root   "/opt/''${dir}"
-                ${pkgs.coreutils}/bin/chmod --recursive u=rwX,g=,o= "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chown root:root   "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chmod u=rwX,g=,o= "/opt/''${dir}"
                 ${pkgs.acl}/bin/setfacl \
                   --recursive \
                   --set "${acl}" \
