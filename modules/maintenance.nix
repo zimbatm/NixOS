@@ -52,17 +52,25 @@ in {
       };
     };
 
-    nixos_upgrade.startAt = mkOption {
-      type = with types; listOf str;
-      # By default, we run the upgrade service once at night and twice during
-      # the day, to catch the situation where the server is turned off during
-      # the night or during the weekend (which can be anywhere from Thursday to Sunday).
-      # When the service is being run during the day, we will be outside the
-      # reboot window and the config will not be switched.
-      default = [ "Fri 12:00" "Sun 12:00" "Mon 02:00" ];
-      description = ''
-        When to run the nixos-upgrade service.
-      '';
+    nixos_upgrade = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable the nixos-upgrade timer";
+      };
+
+      startAt = mkOption {
+        type = with types; listOf str;
+        # By default, we run the upgrade service once at night and twice during
+        # the day, to catch the situation where the server is turned off during
+        # the night or during the weekend (which can be anywhere from Thursday to Sunday).
+        # When the service is being run during the day, we will be outside the
+        # reboot window and the config will not be switched.
+        default = [ "Fri 12:00" "Sun 12:00" "Mon 02:00" ];
+        description = ''
+          When to run the nixos-upgrade service.
+        '';
+      };
     };
 
     docker_prune_timer.enable = mkEnableOption "service to periodically run docker system prune";
@@ -70,7 +78,7 @@ in {
 
   config = mkIf cfg.enable {
     system.autoUpgrade = {
-      enable       = true;
+      enable       = cfg.nixos_upgrade.enable;
       allowReboot  = true;
       rebootWindow = { lower = "01:00"; upper = "05:00"; };
       # We override this below, since this option does not accept
@@ -79,7 +87,7 @@ in {
     };
 
     systemd.services = {
-      nixos-upgrade = {
+      nixos-upgrade = mkIf cfg.nixos_upgrade.enable {
         serviceConfig = {
           TimeoutStartSec = "2 days";
         };
