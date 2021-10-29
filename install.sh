@@ -329,7 +329,7 @@ if [ "${CREATE_DATA_PART}" = true ]; then
     nix-shell "${nixos_dir}"/scripts/python_nixostools/shell.nix \
               --run "decrypt_server_secrets \
                        --server_name ${TARGET_HOSTNAME} \
-                       --secrets_path ${config_dir}/secrets/generated \
+                       --secrets_path ${config_dir}/secrets/generated/generated-secrets.yml \
                        --output_path ${secrets_dir} \
                        --private_key_file /tmp/id_tunnel > /dev/null"
   }
