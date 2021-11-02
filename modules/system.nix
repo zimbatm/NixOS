@@ -1,8 +1,9 @@
 { config, lib, pkgs, ... }:
 
 let
-  cfg     = config.settings.system;
-  tnl_cfg = config.settings.reverse_tunnel;
+  cfg        = config.settings.system;
+  tnl_cfg    = config.settings.reverse_tunnel;
+  crypto_cfg = config.settings.crypto;
 in
 
 with lib;
@@ -423,8 +424,8 @@ with (import ../msf_lib.nix);
           enable      = true;
           description = "Set the ACLs on /opt.";
           # We only run this service when /opt is being mounted.
-          after       = [ "opt.mount" ];
-          wantedBy    = [ "opt.mount" ];
+          after       = optionals crypto_cfg.encrypted_opt.enable [ "opt.mount" ];
+          wantedBy    = optionals crypto_cfg.encrypted_opt.enable [ "opt.mount" ];
           serviceConfig = {
             User = "root";
             Type = "oneshot";
@@ -445,8 +446,8 @@ with (import ../msf_lib.nix);
           in ''
             # Ensure that /opt actually exists
             if [ ! -d "/opt" ]; then
-              echo "/opt does not exist!"
-              exit 1
+              echo "/opt does not exist, exiting."
+              exit 0
             fi
 
             # Root owns /opt, and we apply the ACL defined above
