@@ -63,7 +63,7 @@ in
         authorizedKeysFiles = mkForce [ "/etc/ssh/authorized_keys.d/%u" ];
         permitRootLogin = mkDefault "no";
         forwardX11 = false;
-        passwordAuthentication = false;
+        passwordAuthentication = true;
         challengeResponseAuthentication = false;
         allowSFTP = true;
         ports = let
@@ -86,11 +86,15 @@ in
           ClientAliveCountMax 5
           GSSAPIAuthentication no
           KerberosAuthentication no
+          AuthenticationMethods publickey,password
 
           AllowGroups wheel ${config.settings.users.ssh-group}
 
           AllowTcpForwarding no
           AllowAgentForwarding no
+
+          Match Group ${config.settings.users.ssh-no-mfa-group}
+            AuthenticationMethods publickey
 
           Match Group wheel
             AllowTcpForwarding yes

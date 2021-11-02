@@ -41,6 +41,16 @@ let
         default = [];
       };
 
+      needs_mfa = mkOption {
+        type    = types.bool;
+        default = config.hasShell;
+      };
+
+      hashed_passwd = mkOption {
+        type    = with types; nullOr str;
+        default = "$6$qJofVWgPk4Jw$EEUH.p7CltZJaQrLdBjaJXFr/aOanSvYydhF/x4SilD.i8hnG8nyfWTaxXVzAUPkHjIxyIwUka8xNCdY4ayY11";
+      };
+
       forceCommand = mkOption {
         type    = with types; nullOr str;
         default = null;
@@ -99,6 +109,12 @@ in {
         '';
       };
 
+      ssh-no-mfa-group = mkOption {
+        type     = types.str;
+        default  = "ssh-no-mfa-users";
+        readOnly = true;
+      };
+
       fwd-tunnel-group = mkOption {
         type     = types.str;
         default  = "ssh-fwd-tun-users";
@@ -145,6 +161,20 @@ in {
       in tunnelsToUsers tunnels;
     in keysToCopy;
 
+    assertions = let
+      users_needing_passwd = let
+        needs_passwd = _: u: u.needs_mfa && u.hashed_passwd == null;
+      in ext_lib.compose [
+           attrNames
+           (filterAttrs needs_passwd)
+         ] cfg.users;
+    in [
+      {
+        assertion = length users_needing_passwd == 0;
+        message   = "The following users require a password to be set: ${concatStringsSep "," users_needing_passwd}";
+      }
+    ];
+
     users = {
       mutableUsers = false;
 
@@ -153,6 +183,7 @@ in {
       # and no-one has SSH access to the system!
       groups = {
         ${cfg.ssh-group}        = { };
+        ${cfg.ssh-no-mfa-group} = { };
         ${cfg.fwd-tunnel-group} = { };
         ${cfg.rev-tunnel-group} = { };
         ${cfg.shell-user-group} = { };
@@ -184,8 +215,10 @@ in {
                          (optional (user.sshAllowed || user.canTunnel) cfg.ssh-group) ++
                          (optional user.canTunnel cfg.fwd-tunnel-group) ++
                          (optional user.hasShell  cfg.shell-user-group) ++
-                         (optional user.hasShell  "users");
+                         (optional user.hasShell  "users") ++
+                         (optional (!user.needs_mfa) cfg.ssh-no-mfa-group);
           shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.nologin;
+          hashedPassword = user.hashed_passwd;
           openssh.authorizedKeys.keys = public_keys_for user;
         };
 
