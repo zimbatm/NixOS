@@ -425,7 +425,9 @@ with (import ../msf_lib.nix);
           description = "Set the ACLs on /opt.";
           # We only run this service when /opt is being mounted.
           after       = optionals crypto_cfg.encrypted_opt.enable [ "opt.mount" ];
-          wantedBy    = optionals crypto_cfg.encrypted_opt.enable [ "opt.mount" ];
+          wantedBy    = if crypto_cfg.encrypted_opt.enable
+                        then [ "opt.mount" ]
+                        else [ "multi-user.target" ];
           serviceConfig = {
             User = "root";
             Type = "oneshot";
