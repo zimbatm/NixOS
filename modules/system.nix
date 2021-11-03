@@ -460,14 +460,20 @@ with (import ../msf_lib.nix);
               "/opt/"
 
             # Special cases
-            ${pkgs.coreutils}/bin/chown root:root     "/opt/${containerd}"
-            ${pkgs.coreutils}/bin/chmod u=rwX,g=X,o=X "/opt/${containerd}"
+            if [ -d "/opt/${containerd}" ]; then
+              ${pkgs.coreutils}/bin/chown root:root     "/opt/${containerd}"
+              ${pkgs.coreutils}/bin/chmod u=rwX,g=X,o=X "/opt/${containerd}"
+            fi
 
-            ${pkgs.coreutils}/bin/chown root:root       "/opt/.docker"
-            ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.docker"
+            if [ -d "/opt/.docker" ]; then
+              ${pkgs.coreutils}/bin/chown root:root       "/opt/.docker"
+              ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.docker"
+            fi
 
-            ${pkgs.coreutils}/bin/chown root:root       "/opt/.home"
-            ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.home"
+            if [ -d "/opt/.home" ]; then
+              ${pkgs.coreutils}/bin/chown root:root       "/opt/.home"
+              ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.home"
+            fi
 
             # We iterate over all directories that are not hidden,
             # except containerd and lost+found.
