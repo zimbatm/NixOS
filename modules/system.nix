@@ -183,6 +183,12 @@ with (import ../msf_lib.nix);
       };
     };
 
+    opt = {
+      allow_groups = mkOption {
+        type = with types; listOf str;
+      };
+    };
+
     diskSwap = {
       enable = mkOption {
         type = types.bool;
@@ -303,6 +309,8 @@ with (import ../msf_lib.nix);
 
     # Admins have access to the secrets
     settings.system.secrets.allow_groups = [ "wheel" ];
+    # Admins have access to /opt
+    settings.system.opt.allow_groups = [ "wheel" ];
 
     system.activationScripts = let
       # Referencing the path directly, causes the file to be copied to the nix store.
@@ -434,17 +442,15 @@ with (import ../msf_lib.nix);
           };
           script = let
             containerd = "containerd";
-            # TODO: make the groups configurable, currently wheel and docker
-            acl = concatStringsSep "," [
-                    "u::rwX,g::r-X,o::---"
-                    "user:root:rwX"
-                    "group:wheel:rwX"
-                    "group:docker:rwX"
-                    "d:u::rwX,d:g::r-X,d:o::---"
-                    "d:user:root:rwX"
-                    "d:group:wheel:rwX"
-                    "d:group:docker:rwX"
-                  ];
+            acl = concatStringsSep "," (
+                    [
+                      "u::rwX,g::r-X,o::---"
+                      "user:root:rwX"
+                      "d:u::rwX,d:g::r-X,d:o::---"
+                      "d:user:root:rwX"
+                    ] ++
+                    concatMap (group: [ "group:${group}:rwX" "d:group:${group}:rwX"])
+                              cfg.opt.allow_groups);
           in ''
             # Ensure that /opt actually exists
             if [ ! -d "/opt" ]; then
