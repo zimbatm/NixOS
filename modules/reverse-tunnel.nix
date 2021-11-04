@@ -205,7 +205,8 @@ in {
                                              (filterAttrs (_: includeTunnel)) ];
         in {
           extraGroups = mkIf cfg.relay.enable [ config.settings.users.ssh-group
-                                                config.settings.users.rev-tunnel-group ];
+                                                config.settings.users.rev-tunnel-group
+                                                config.settings.users.ssh-no-mfa-group ];
           openssh.authorizedKeys.keys = mkIf cfg.relay.enable (mkKeyConfigs cfg.tunnels);
         };
 
@@ -216,7 +217,8 @@ in {
           shell        = pkgs.nologin;
           # The fwd-tunnel-group is required to be able to proxy through the relay
           extraGroups  = [ config.settings.users.ssh-group
-                           config.settings.users.fwd-tunnel-group ];
+                           config.settings.users.fwd-tunnel-group
+                           config.settings.users.ssh-no-mfa-group ];
           openssh.authorizedKeys.keys = let
             addKeyLimitations = k: ''restrict,port-forwarding ${k}'';
           in map addKeyLimitations cfg.relay.tunneller.keys;
