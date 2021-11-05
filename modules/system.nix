@@ -4,6 +4,7 @@ let
   cfg        = config.settings.system;
   tnl_cfg    = config.settings.reverse_tunnel;
   crypto_cfg = config.settings.crypto;
+  docker_cfg = config.settings.docker;
 in
 
 with lib;
@@ -429,10 +430,12 @@ with (import ../msf_lib.nix);
 
       services = {
         set_opt_permissions = {
+          # See https://web.archive.org/web/20121022035645/http://vanemery.com/Linux/ACL/POSIX_ACL_on_Linux.html
           enable      = true;
           description = "Set the ACLs on /opt.";
-          # We only run this service when /opt is being mounted.
-          after       = optionals crypto_cfg.encrypted_opt.enable [ "opt.mount" ];
+          after       = optionals crypto_cfg.encrypted_opt.enable [ "opt.mount" ] ++
+                        optionals docker_cfg.enable               [ "docker.service" ];
+          wants       = optionals docker_cfg.enable               [ "docker.service" ];
           wantedBy    = if crypto_cfg.encrypted_opt.enable
                         then [ "opt.mount" ]
                         else [ "multi-user.target" ];
@@ -467,16 +470,19 @@ with (import ../msf_lib.nix);
 
             # Special cases
             if [ -d "/opt/${containerd}" ]; then
+              ${pkgs.acl}/bin/setfacl --remove-all --remove-default "/opt/${containerd}"
               ${pkgs.coreutils}/bin/chown root:root     "/opt/${containerd}"
               ${pkgs.coreutils}/bin/chmod u=rwX,g=X,o=X "/opt/${containerd}"
             fi
 
             if [ -d "/opt/.docker" ]; then
+              ${pkgs.acl}/bin/setfacl --remove-all --remove-default "/opt/.docker"
               ${pkgs.coreutils}/bin/chown root:root       "/opt/.docker"
               ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.docker"
             fi
 
             if [ -d "/opt/.home" ]; then
+              ${pkgs.acl}/bin/setfacl --remove-all --remove-default "/opt/.home"
               ${pkgs.coreutils}/bin/chown root:root       "/opt/.home"
               ${pkgs.coreutils}/bin/chmod u=rwX,g=rX,o=rX "/opt/.home"
             fi
