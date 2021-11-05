@@ -277,8 +277,8 @@ fi
 
   if [ "${can_authenticate}" -ne "0" ]; then
     echo -e "\nThis server's SSH key does not give us access to GitHub."
-    echo    "Please add the following public key to the json/tunnels.json"
-    echo -e "file in the NixOS-OCB-config repo:\n"
+    echo    "Please add the following public key to the file"
+    echo -e "json/tunnels.d/tunnels.json in the NixOS-OCB-config repo:\n"
     cat /tmp/id_tunnel.pub
     echo -e "\nThe installation will automatically continue once the key"
     echo    "has been added to GitHub and the deployment actions have"
@@ -302,7 +302,7 @@ fi
 # Set some global Git settings
 nix-shell --packages git --run "git config --global pull.rebase true"
 nix-shell --packages git --run "git config --global user.name 'OCB NixOS Robot'"
-nix-shell --packages git --run "git config --global user.email 'nixos-ocb@users.noreply.github.com'"
+nix-shell --packages git --run "git config --global user.email '69807852+nixos-ocb@users.noreply.github.com'"
 nix-shell --packages git --run "git config --global core.sshCommand 'ssh -i /tmp/id_tunnel'"
 
 # Commit a new encryption key to GitHub, if one does not exist yet
