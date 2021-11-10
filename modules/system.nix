@@ -447,13 +447,17 @@ with (import ../msf_lib.nix);
             containerd = "containerd";
             acl = concatStringsSep "," (
                     [
-                      "u::rwX,g::r-X,o::---"
+                      "u::rwX"
                       "user:root:rwX"
-                      "d:u::rwX,d:g::r-X,d:o::---"
+                      "d:u::rwX"
+                      "d:g::r-X"
+                      "d:o::---"
                       "d:user:root:rwX"
                     ] ++
                     concatMap (group: [ "group:${group}:rwX" "d:group:${group}:rwX"])
                               cfg.opt.allow_groups);
+            # For /opt we use setfacl --set, so we need to define the full ACL
+            opt_acl = concatStringsSep "," [ "g::r-X" "o::---" acl ];
           in ''
             # Ensure that /opt actually exists
             if [ ! -d "/opt" ]; then
@@ -465,7 +469,7 @@ with (import ../msf_lib.nix);
             ${pkgs.coreutils}/bin/chown root:root      "/opt/"
             ${pkgs.coreutils}/bin/chmod u=rwX,g=rwX,o= "/opt/"
             ${pkgs.acl}/bin/setfacl \
-              --set "${acl}" \
+              --set "${opt_acl}" \
               "/opt/"
 
             # Special cases
@@ -496,11 +500,12 @@ with (import ../msf_lib.nix);
               if [ -d "/opt/''${dir}" ] && \
                  [ ! "${containerd}" = "''${dir}" ] && \
                  [ ! "lost+found"    = "''${dir}" ]; then
-                ${pkgs.coreutils}/bin/chown root:root   "/opt/''${dir}"
-                ${pkgs.coreutils}/bin/chmod u=rwX,g=,o= "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chown root:root "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chmod u=rwX,o=  "/opt/''${dir}"
                 ${pkgs.acl}/bin/setfacl \
                   --recursive \
-                  --set "${acl}" \
+                  --no-mask \
+                  --modify "${acl}" \
                   "/opt/''${dir}"
               fi
             done
