@@ -102,10 +102,13 @@ in {
           Type = "oneshot";
         };
         environment = {
-          GIT_SSH_COMMAND = "${pkgs.openssh}/bin/ssh " +
-                            "-i ${sys_cfg.private_key} " +
-                            "-o IdentitiesOnly=yes " +
-                            "-o StrictHostKeyChecking=yes";
+          GIT_SSH_COMMAND = concatStringsSep " " [
+            "${pkgs.openssh}/bin/ssh"
+            "-F /etc/ssh/ssh_config"
+            "-i ${sys_cfg.private_key}"
+            "-o IdentitiesOnly=yes"
+            "-o StrictHostKeyChecking=yes"
+          ];
         };
         script = let
           base_path = "/etc/nixos";

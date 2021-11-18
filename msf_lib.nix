@@ -245,10 +245,13 @@ with lib;
         # We need to set the NIX_PATH env var so that we can resolve <nixpkgs>
         # references when using nix-shell.
         inherit (config.environment.sessionVariables) NIX_PATH;
-        GIT_SSH_COMMAND = "${pkgs.openssh}/bin/ssh " +
-                          "-i ${private_key} " +
-                          "-o IdentitiesOnly=yes " +
-                          "-o StrictHostKeyChecking=yes";
+        GIT_SSH_COMMAND = concatStringsSep " " [
+          "${pkgs.openssh}/bin/ssh"
+          "-F /etc/ssh/ssh_config"
+          "-i ${private_key}"
+          "-o IdentitiesOnly=yes"
+          "-o StrictHostKeyChecking=yes"
+        ];
         "${env_var_prefix}_SECRETS_DIRECTORY" = secrets_dir;
         "${env_var_prefix}_DEPLOY_DIR" = deploy_dir;
       };

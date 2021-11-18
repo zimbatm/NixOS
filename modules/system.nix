@@ -541,7 +541,7 @@ with (import ../msf_lib.nix);
         hostKeyAlgorithms = [ "ssh-ed25519" "ssh-rsa" ];
         knownHosts.github = {
           hostNames = [ "github.com" "ssh.github.com" ];
-          publicKeyFile = ../data/github_public_key;
+          publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
         };
         extraConfig = ''
           # Some internet providers block port 22,
