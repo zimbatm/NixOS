@@ -18,8 +18,8 @@ def args_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(description='Build all NixOS configs.')
   parser.add_argument('--group_amount', type = int, dest = 'group_amount', required = True)
   parser.add_argument('--group_id',     type = int, dest = 'group_id',     required = True)
-  parser.add_argument('--host_dir',     type = str, dest = 'host_dir',     required = False,
-                      default = os.path.join('.', 'org-config', 'hosts'))
+  parser.add_argument('--nixos_config_dir', type = str, dest = 'nixos_config_dir',
+                      required = False, default = os.getcwd())
   return parser
 
 
@@ -49,10 +49,10 @@ def validate_json(build_dir: str) -> None:
           json.load(fp, object_pairs_hook = no_duplicates_hook(filename))
 
 
-def init_tree(build_dir: str) -> None:
+def init_tree(nixos_config_dir: str, build_dir: str) -> None:
   if os.path.isdir(build_dir):
     shutil.rmtree(build_dir)
-  shutil.copytree(os.getcwd(), build_dir,
+  shutil.copytree(nixos_config_dir, build_dir,
                   symlinks = True,
                   ignore = shutil.ignore_patterns('.git', 'result',
                                                   'id_tunnel', 'settings.nix'))
@@ -108,16 +108,22 @@ def build_config(build_dir: str, hostname: str, retry: bool = False):
   return proc if retry else retry_if_elm_failed(proc, retry_routine)
 
 
-def do_build_configs(build_dir: str, configs: Iterable) -> None:
-  init_tree(build_dir)
+def do_build_configs(nixos_config_dir: str,
+                     build_dir: str,
+                     configs: Iterable) -> None:
+  init_tree(nixos_config_dir, build_dir)
   validate_json(build_dir)
   for config in configs:
     proc = build_config(build_dir, config)
     proc.check_returncode()
 
 
-def build_configs(build_dir: str, group_amount: int, group_id: int) -> None:
-  configs = sorted(glob.glob(os.path.join('.', 'org-config', 'hosts', '*.nix')))
+def build_configs(nixos_config_dir: str,
+                  build_dir: str,
+                  group_amount: int,
+                  group_id: int) -> None:
+  configs = sorted(glob.glob(
+    os.path.join(nixos_config_dir, 'org-config', 'hosts', '*.nix')))
   length = len(configs)
 
   # Let's imagine 10 configs, and 4 builders, in that case the slice_size is 10 / 4 = 2
@@ -137,7 +143,7 @@ def build_configs(build_dir: str, group_amount: int, group_id: int) -> None:
         f"building group ID {group_id}, starting at {begin}, building {size} configs.")
   print(f"Configs to build: {configs[begin:end]}")
 
-  do_build_configs(build_dir, configs[begin:end])
+  do_build_configs(nixos_config_dir, build_dir, configs[begin:end])
 
 
 def validate_args(args):
@@ -154,7 +160,7 @@ def validate_args(args):
 def main():
   args = validate_args(args_parser().parse_args())
   build_dir = os.path.join(tempfile.gettempdir(), 'nix_config_build')
-  build_configs(build_dir, args.group_amount, args.group_id)
+  build_configs(args.nixos_config_dir, build_dir, args.group_amount, args.group_id)
 
 
 if __name__ == '__main__':
