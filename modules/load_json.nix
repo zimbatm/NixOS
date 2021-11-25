@@ -94,11 +94,28 @@ with (import ../msf_lib.nix);
           onRoleAbsent = role: hostName:
             abort ''The role "${role}" which was enabled for host "${hostName}" is not defined.'';
           # Activate the users in the given role
-          activateRole = hostName: role:
-            listToAttrs_const [ "users" "roles" role ]
-                              { enable = true; }
-                              (onRoleAbsent role hostName)
-                              users_json_data;
+          activateRole = hostName: role: let
+            role_data = attrByPath [ "users" "roles" role ]
+                                   (onRoleAbsent role hostName)
+                                   users_json_data;
+            direct = listToAttrs_const [ "enable" ]
+                                       { enable = true; }
+                                       []
+                                       role_data;
+            nested = activateRoles hostName
+                                   (attrByPath [ "enable_roles" ] [] role_data);
+            enabled_users = msf_lib.recursiveMerge ([ direct ] ++ nested);
+
+            # TODO: Backwards compat, to be removed
+            compat_enabled_users = listToAttrs_const [ "users" "roles" role ]
+                                                     { enable = true; }
+                                                     (onRoleAbsent role hostName)
+                                                     users_json_data;
+          in if isAttrs role_data
+             then enabled_users
+             else trace ''Warning: role ${role} is using a legacy format that will soon not be supported anymore!''
+                        compat_enabled_users;
+
           activateRoles = hostName: map (activateRole hostName);
         in activateRoles hostName (enabledRoles hostName users_json_data);
       in msf_lib.recursiveMerge ([ remoteTunnelUsers
