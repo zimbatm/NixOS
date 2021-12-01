@@ -550,6 +550,7 @@ with (import ../msf_lib.nix);
             HostName ssh.github.com
             User git
             Port 443
+            UserKnownHostsFile /dev/null
         '';
       };
 
