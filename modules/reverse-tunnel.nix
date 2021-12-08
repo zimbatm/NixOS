@@ -178,34 +178,43 @@ in {
       }
     ];
 
-    users.extraUsers = {
-      tunnel = let
-        prefixes       = tunnel: get_prefixes tunnel.reverse_tunnels;
-        mkLimitation   = base_port: prefix:
-          ''permitlisten="${toString (add_port_prefix prefix base_port)}"'';
-        mkKeyConfig    = tunnel: concatStringsSep " " [
-          (concatMapStringsSep "," (mkLimitation tunnel.remote_forward_port)
-                                   (prefixes tunnel))
-          tunnel.public_key
-          "tunnel@${tunnel.name}"
-        ];
-        mkKeyConfigs   = msf_lib.compose [ naturalSort
-                                           (mapAttrsToList (_: mkKeyConfig))
-                                           (filterAttrs (_: includeTunnel)) ];
-      in {
-        extraGroups = mkIf cfg.relay.enable [ config.settings.users.ssh-group
-                                              config.settings.users.rev-tunnel-group ];
-        openssh.authorizedKeys.keys = mkIf cfg.relay.enable (mkKeyConfigs cfg.tunnels);
+    users = let
+      tunneller = "tunneller";
+    in {
+      extraUsers = {
+        tunnel = let
+          prefixes       = tunnel: get_prefixes tunnel.reverse_tunnels;
+          mkLimitation   = base_port: prefix:
+            ''permitlisten="${toString (add_port_prefix prefix base_port)}"'';
+          mkKeyConfig    = tunnel: concatStringsSep " " [
+            (concatMapStringsSep "," (mkLimitation tunnel.remote_forward_port)
+                                     (prefixes tunnel))
+            tunnel.public_key
+            "tunnel@${tunnel.name}"
+          ];
+          mkKeyConfigs   = msf_lib.compose [ naturalSort
+                                             (mapAttrsToList (_: mkKeyConfig))
+                                             (filterAttrs (_: includeTunnel)) ];
+        in {
+          extraGroups = mkIf cfg.relay.enable [ config.settings.users.ssh-group
+                                                config.settings.users.rev-tunnel-group ];
+          openssh.authorizedKeys.keys = mkIf cfg.relay.enable (mkKeyConfigs cfg.tunnels);
+        };
+
+        ${tunneller} = mkIf cfg.relay.enable {
+          group        = tunneller;
+          isNormalUser = false;
+          isSystemUser = true;
+          shell        = pkgs.nologin;
+          # The fwd-tunnel-group is required to be able to proxy through the relay
+          extraGroups  = [ config.settings.users.ssh-group
+                           config.settings.users.fwd-tunnel-group ];
+          openssh.authorizedKeys.keys = cfg.relay.tunneller.keys;
+        };
       };
 
-      tunneller = mkIf cfg.relay.enable {
-        isNormalUser = false;
-        isSystemUser = true;
-        shell        = pkgs.nologin;
-        # The fwd-tunnel-group is required to be able to proxy through the relay
-        extraGroups  = [ config.settings.users.ssh-group
-                         config.settings.users.fwd-tunnel-group ];
-        openssh.authorizedKeys.keys = cfg.relay.tunneller.keys;
+      groups = {
+        ${tunneller} = {};
       };
     };
 

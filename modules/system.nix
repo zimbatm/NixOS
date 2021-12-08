@@ -300,14 +300,22 @@ with (import ../msf_lib.nix);
       };
     };
 
-    users.extraUsers = {
-      tunnel = {
-        isNormalUser = false;
-        isSystemUser = true;
-        # The key to connect to the relays will be copied to /run/tunnel
-        home         = cfg.private_key_directory;
-        createHome   = true;
-        shell        = pkgs.nologin;
+    users = let
+      tunnel = "tunnel";
+    in {
+      extraUsers = {
+        ${tunnel} = {
+          group        = tunnel;
+          isNormalUser = false;
+          isSystemUser = true;
+          # The key to connect to the relays will be copied to /run/tunnel
+          home         = cfg.private_key_directory;
+          createHome   = true;
+          shell        = pkgs.nologin;
+        };
+      };
+      groups = {
+        ${tunnel} = {};
       };
     };
 

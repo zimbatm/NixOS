@@ -149,7 +149,12 @@ in {
       # Create the groups that are used for whitelisting sudo commands
       msf_lib.compose [ (mapAttrs (_: _: {}))
                         msf_lib.filterEnabled ]
-                      cfg.whitelistGroups;
+                      cfg.whitelistGroups
+      //
+      # Create a group per user
+      msf_lib.compose [ (mapAttrs' (_: u: nameValuePair u.name {}))
+                        msf_lib.filterEnabled ]
+                      cfg.users;
 
       users = let
         hasForceCommand = user: ! isNull user.forceCommand;
@@ -158,10 +163,12 @@ in {
           name         = user.name;
           isNormalUser = user.hasShell;
           isSystemUser = ! user.hasShell;
+          group        = user.name;
           extraGroups  = user.extraGroups ++
                          (optional (user.sshAllowed || user.canTunnel) cfg.ssh-group) ++
                          (optional user.canTunnel cfg.fwd-tunnel-group) ++
-                         (optional user.hasShell  cfg.shell-user-group);
+                         (optional user.hasShell  cfg.shell-user-group) ++
+                         (optional user.hasShell  "users");
           shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.nologin;
           openssh.authorizedKeys.keys = public_keys_for user;
         };
