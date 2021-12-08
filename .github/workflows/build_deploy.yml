@@ -18,7 +18,7 @@ on:
 
 jobs:
 
-  call:
+  shared:
     uses: 'msf-ocb/nixos/.github/workflows/reusable_build_deploy.yml@master'
     with:
       push_secrets:    false

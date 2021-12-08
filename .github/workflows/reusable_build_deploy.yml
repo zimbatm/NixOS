@@ -25,6 +25,15 @@ on:
 
 jobs:
 
+  log_inputs:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Log inputs
+        run: |-
+          echo "push_secrets: ${{ inputs.push_secrets }}"
+          echo "push_robot_keys: ${{ inputs.push_robot_keys }}"
+
+
   update_nixos_robot_keys:
     runs-on: 'ubuntu-latest'
     steps:
@@ -236,6 +245,4 @@ jobs:
             sshrelay2.ocb.msf.org
             sshrelay-za-1.ocb.msf.org
           nixos_deploy_service: 'nixos_rebuild_config.service'
-
-
 
