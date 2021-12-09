@@ -148,9 +148,9 @@ jobs:
   generate_build_matrix:
     name: 'make build matrix'
     runs-on: 'ubuntu-latest'
-    if: >-
-      ${{ ! failure() &&
-          needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
+    needs:
+      - encrypt_secrets
+    if: ${{ needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -172,9 +172,7 @@ jobs:
       - generate_build_matrix
     # Only run this step if no new secrets were pushed,
     # otherwise the action will be retriggered anyway.
-    if: >-
-      ${{ ! failure() &&
-          needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
+    if: ${{ needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
     strategy:
       matrix: ${{ fromJSON(needs.generate_build_matrix.outputs.matrix) }}
     steps:
@@ -216,9 +214,7 @@ jobs:
     needs: encrypt_secrets
     # Only run this step if new secrets were pushed,
     # otherwise the action will be retriggered anyway.
-    if: >-
-      ${{ ! failure() &&
-          needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
+    if: ${{ needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
     steps:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
@@ -256,8 +252,7 @@ jobs:
       - update_nixos_robot_keys
     # We only want to deploy when commits have been pushed to master
     if: >-
-      ${{ ! failure() &&
-          github.event_name == 'push' &&
+      ${{ github.event_name == 'push' &&
           github.ref == 'refs/heads/master' }}
     steps:
       - name: Auto-deploy the NixOS config to the requested servers
