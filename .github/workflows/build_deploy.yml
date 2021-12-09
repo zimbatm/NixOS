@@ -19,7 +19,7 @@ on:
 jobs:
 
   shared:
-    uses: 'msf-ocb/nixos/.github/workflows/reusable_build_deploy.yml@master'
+    uses: 'msf-ocb/nixos/.github/workflows/reusable_build_deploy.yml@70d243e2403bfdfccf5ebc0a1289c8011708a3b2'
     with:
       push_secrets:    false
       push_robot_keys: false
