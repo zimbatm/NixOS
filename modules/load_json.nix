@@ -68,10 +68,16 @@ with (import ../msf_lib.nix);
         keys_json_path  = sys_cfg.keys_json_path;
         keys_json_data  = msf_lib.traceImportJSON keys_json_path;
 
-        activateUsers = mapAttrs (_: perms:
-          (config.settings.users.available_permission_profiles.${perms}) //
-          { enable = true; }
-        );
+        activateUsers = let
+          profiles = config.settings.users.available_permission_profiles;
+          onProfileNotFound = p: abort ''
+            Permissions profile '${p}' not found in file '${toString users_json_path}', available profiles:
+              ${concatStringsSep ", " (attrNames profiles)}'';
+          enableProfile = p: p // { enable = true; };
+          retrieveProfile = p: if hasAttr p profiles
+                               then enableProfile(profiles.${p})
+                               else onProfileNotFound p;
+        in mapAttrs (_: retrieveProfile);
 
         enabledUsers = activateUsers (attrByPath [ "users" "per-host" hostName "enable" ]
                                                  {}
@@ -88,12 +94,10 @@ with (import ../msf_lib.nix);
             attrByPath [ "users" "per-host" hostName "enable_roles" ] [];
 
           onRoleAbsent = role: hostName: abort ''
-            The role "${role}" which was enabled for host "${hostName}" is not defined.
-          '';
+            The role "${role}" which was enabled for host "${hostName}" is not defined.'';
 
           onCycle = rolesSeen: abort ''
-            Cycle detected while resolving roles: ${concatStringsSep ", " rolesSeen}
-          '';
+            Cycle detected while resolving roles: ${concatStringsSep ", " rolesSeen}'';
 
           # Activate the users in the given role, recursing into nested subroles
           activateRole = hostName: rolesSeen: role: let
