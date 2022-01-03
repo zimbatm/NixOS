@@ -4,6 +4,16 @@ with lib;
 with (import ../msf_lib.nix);
 
 {
+
+  options.settings.users.available_permission_profiles = mkOption {
+    type = types.attrs;
+    # TODO: remove this default
+    default = msf_lib.user_roles;
+    description = ''
+      Attribute set of the permission profiles that can be defined through JSON.
+    '';
+  };
+
   config = let
     sys_cfg  = config.settings.system;
     hostName = config.settings.network.host_name;
@@ -57,71 +67,68 @@ with (import ../msf_lib.nix);
       users.users = let
         users_json_path = sys_cfg.users_json_path;
         users_json_data = msf_lib.traceImportJSON users_json_path;
-        remoteTunnel    = msf_lib.user_roles.remoteTunnel;
         keys_json_path  = sys_cfg.keys_json_path;
         keys_json_data  = msf_lib.traceImportJSON keys_json_path;
 
-        /*
-          Load the list at path in an attribute set and convert it to
-          an attribute set with every list element as a key and the value
-          set to a given constant value.
-          If the given path cannot be found in the loaded JSON structure,
-          then the value of onAbsent will be used as input instead.
+        #TODO: remove the deprecated version which is only there for
+        # backwards compatibility while migrating to the new API
+        activateUsers = users: let
+          f = if isAttrs users
+              then new_activateUsers
+              else deprecated_activateUsers;
+        in f users;
 
-          Example:
-            listToAttrs_const [ "per-host" "benuc002" "enable" ]
-                              val
-                              []
-                              { per-host.benuc002.enable = [ "foo", "bar" ]; }
-            => { foo = val; bar = val; }
-        */
-        listToAttrs_const = path: value: onAbsent:
-          msf_lib.compose [ (flip genAttrs (const value))
-                            (attrByPath path onAbsent) ];
+        new_activateUsers = mapAttrs (_: perms:
+          (config.settings.users.available_permission_profiles.${perms}) //
+          { enable = true; }
+        );
 
-        remoteTunnelUsers = listToAttrs_const [ "users" "remote_tunnel" ]
-                                              remoteTunnel
-                                              [] users_json_data;
-        enabledUsers      = listToAttrs_const [ "users" "per-host" hostName "enable" ]
-                                              { enable = true; }
-                                              [] users_json_data;
+        deprecated_activateUsers = flip genAttrs (const { enable = true; });
 
+        enabledUsers = activateUsers (attrByPath [ "users" "per-host" hostName "enable" ]
+                                                 {}
+                                                 users_json_data);
+
+        # We maintain a list of the visited roles to be able to detect and report
+        # any cycles during role resolution.
+        # This structure cannot be an attribute set (which would be more efficient)
+        # since attribute sets do not preserve insertion order.
         enabledUsersByRoles = let
           # Given the host name and the json data,
           # retrieve the enabled roles for the given host
           enabledRoles = hostName:
             attrByPath [ "users" "per-host" hostName "enable_roles" ] [];
-          onRoleAbsent = role: hostName:
-            abort ''The role "${role}" which was enabled for host "${hostName}" is not defined.'';
-          # Activate the users in the given role
-          activateRole = hostName: role: let
-            role_data = attrByPath [ "users" "roles" role ]
-                                   (onRoleAbsent role hostName)
-                                   users_json_data;
-            direct = listToAttrs_const [ "enable" ]
-                                       { enable = true; }
-                                       []
-                                       role_data;
-            nested = activateRoles hostName
-                                   (attrByPath [ "enable_roles" ] [] role_data);
-            enabled_users = msf_lib.recursiveMerge ([ direct ] ++ nested);
 
-            # TODO: Backwards compat, to be removed
-            compat_enabled_users = listToAttrs_const [ "users" "roles" role ]
-                                                     { enable = true; }
-                                                     (onRoleAbsent role hostName)
-                                                     users_json_data;
-          in if isAttrs role_data
-             then enabled_users
-             else trace ''Warning: role ${role} is using a legacy format that will soon not be supported anymore!''
-                        compat_enabled_users;
+          onRoleAbsent = role: hostName: abort ''
+            The role "${role}" which was enabled for host "${hostName}" is not defined.
+          '';
 
-          activateRoles = hostName: map (activateRole hostName);
-        in activateRoles hostName (enabledRoles hostName users_json_data);
-      in msf_lib.recursiveMerge ([ remoteTunnelUsers
-                                   enabledUsers
-                                   keys_json_data.keys ] ++
-                                   enabledUsersByRoles);
+          onCycle = rolesSeen: abort ''
+            Cycle detected while resolving roles: ${concatStringsSep ", " rolesSeen}
+          '';
+
+          # Activate the users in the given role, recursing into nested subroles
+          activateRole = hostName: rolesSeen: role: let
+            rolesSeen' = rolesSeen ++ [ role ];
+            roleData = attrByPath [ "users" "roles" role ]
+                                  (onRoleAbsent role hostName)
+                                  users_json_data;
+            direct = activateUsers (attrByPath [ "enable" ] {} roleData);
+            nested = activateRoles hostName rolesSeen'
+                                   (attrByPath [ "enable_roles" ] [] roleData);
+          in if (elem role rolesSeen)
+             then onCycle rolesSeen'
+             else recursiveUpdate direct nested;
+
+          activateRoles = hostName: rolesSeen: msf_lib.compose [
+            msf_lib.recursiveMerge
+            (map (activateRole hostName rolesSeen))
+          ];
+
+        in activateRoles hostName [] (enabledRoles hostName users_json_data);
+      in msf_lib.recursiveMerge [ enabledUsers
+                                  keys_json_data.keys
+                                  enabledUsersByRoles ];
 
       reverse_tunnel.tunnels = let
         # We add the SSH tunnel by default

@@ -131,7 +131,8 @@ in {
                                 user.public_keys;
   in {
     settings.users.users.${cfg.robot.username} =
-      mkIf cfg.robot.enable msf_lib.user_roles.globalAdmin;
+      mkIf cfg.robot.enable (cfg.available_permission_profiles.admin //
+                             { enable = true; });
 
     users = {
       mutableUsers = false;
