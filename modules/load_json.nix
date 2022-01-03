@@ -7,8 +7,6 @@ with (import ../msf_lib.nix);
 
   options.settings.users.available_permission_profiles = mkOption {
     type = types.attrs;
-    # TODO: remove this default
-    default = msf_lib.user_roles;
     description = ''
       Attribute set of the permission profiles that can be defined through JSON.
     '';
@@ -70,20 +68,10 @@ with (import ../msf_lib.nix);
         keys_json_path  = sys_cfg.keys_json_path;
         keys_json_data  = msf_lib.traceImportJSON keys_json_path;
 
-        #TODO: remove the deprecated version which is only there for
-        # backwards compatibility while migrating to the new API
-        activateUsers = users: let
-          f = if isAttrs users
-              then new_activateUsers
-              else deprecated_activateUsers;
-        in f users;
-
-        new_activateUsers = mapAttrs (_: perms:
+        activateUsers = mapAttrs (_: perms:
           (config.settings.users.available_permission_profiles.${perms}) //
           { enable = true; }
         );
-
-        deprecated_activateUsers = flip genAttrs (const { enable = true; });
 
         enabledUsers = activateUsers (attrByPath [ "users" "per-host" hostName "enable" ]
                                                  {}
