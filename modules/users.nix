@@ -4,9 +4,8 @@ with lib;
 with (import ../msf_lib.nix);
 
 let
-  cfg            = config.settings.users;
-  sys_cfg        = config.settings.system;
-  reverse_tunnel = config.settings.reverse_tunnel;
+  cfg     = config.settings.users;
+  sys_cfg = config.settings.system;
 
   userOpts = { name, config, ... }: {
     options = {
@@ -158,21 +157,26 @@ in {
                       cfg.users;
 
       users = let
+        isRelay = config.settings.reverse_tunnel.relay.enable;
+
         hasForceCommand = user: ! isNull user.forceCommand;
-        hasShell = user: user.hasShell || (hasForceCommand user && reverse_tunnel.relay.enable);
+
+        hasShell = user: user.hasShell || (hasForceCommand user && isRelay);
+
         mkUser = _: user: {
           name         = user.name;
           isNormalUser = user.hasShell;
           isSystemUser = ! user.hasShell;
           group        = user.name;
           extraGroups  = user.extraGroups ++
-                         (optional (user.sshAllowed || user.canTunnel) cfg.ssh-group) ++
-                         (optional user.canTunnel cfg.fwd-tunnel-group) ++
+                         (optional (isRelay || user.sshAllowed) cfg.ssh-group) ++
+                         (optional (isRelay || user.canTunnel) cfg.fwd-tunnel-group) ++
                          (optional user.hasShell  cfg.shell-user-group) ++
                          (optional user.hasShell  "users");
           shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.nologin;
           openssh.authorizedKeys.keys = public_keys_for user;
         };
+
         mkUsers = msf_lib.compose [ (mapAttrs mkUser)
                                     msf_lib.filterEnabled ];
       in mkUsers cfg.users;
@@ -181,12 +185,11 @@ in {
     settings.reverse_tunnel.relay.tunneller.keys = let
       mkKeys = msf_lib.compose [ # Filter out any duplicates
                                  unique
-                                 # Flatten this list of list to get
+                                 # Flatten this list of lists to get
                                  # a list containing all keys
                                  flatten
                                  # Map every user to a list of its public keys
-                                 (mapAttrsToList (_: user: public_keys_for user))
-                                 (filterAttrs (_: user: user.canTunnel)) ];
+                                 (mapAttrsToList (_: user: public_keys_for user)) ];
     in mkKeys cfg.users;
 
     security.sudo.extraRules = let
