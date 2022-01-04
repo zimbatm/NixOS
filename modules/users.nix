@@ -169,8 +169,8 @@ in {
           isSystemUser = ! user.hasShell;
           group        = user.name;
           extraGroups  = user.extraGroups ++
-                         (optional (isRelay || user.sshAllowed) cfg.ssh-group) ++
-                         (optional (isRelay || user.canTunnel) cfg.fwd-tunnel-group) ++
+                         (optional (user.sshAllowed || user.canTunnel) cfg.ssh-group) ++
+                         (optional user.canTunnel cfg.fwd-tunnel-group) ++
                          (optional user.hasShell  cfg.shell-user-group) ++
                          (optional user.hasShell  "users");
           shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.nologin;
