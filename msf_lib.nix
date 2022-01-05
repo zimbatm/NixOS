@@ -45,6 +45,8 @@ with lib;
     # recursiveUpdate merges the two resulting attribute sets recursively
     recursiveMerge = foldr recursiveUpdate {};
 
+    stringNotEmpty = s: stringLength s != 0;
+
     /* A type for host names, host names consist of:
         * a first character which is an upper or lower case ascii character
         * followed by zero or more of: dash (-), upper case ascii, lower case ascii, digit
@@ -220,7 +222,7 @@ with lib;
     };
   in {
     inherit compose applyTwice filterEnabled find_duplicates recursiveMerge
-            ifPathExists traceImportJSON
+            stringNotEmpty ifPathExists traceImportJSON
             host_name_type empty_str_type pub_key_type
             user_roles formats
             indentStr reset_git clone_and_reset_git mkDeploymentService;

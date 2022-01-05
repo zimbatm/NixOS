@@ -48,6 +48,14 @@ let
         type = types.either msf_lib.empty_str_type msf_lib.pub_key_type;
       };
 
+      copy_key_to_users = mkOption {
+        type    = with types; listOf str;
+        default = [];
+        description = ''
+          A list of users to which this public key will be copied for SSH authentication.
+        '';
+      };
+
       reverse_tunnels = mkOption {
         type    = with types; attrsOf (submodule reverseTunnelOpts);
         default = {};
@@ -111,8 +119,7 @@ in {
   };
 
   config = let
-    stringNotEmpty = s: stringLength s != 0;
-    includeTunnel  = tunnel: stringNotEmpty tunnel.public_key &&
+    includeTunnel  = tunnel: msf_lib.stringNotEmpty tunnel.public_key &&
                              tunnel.remote_forward_port > 0;
     add_port_prefix = prefix: base_port: 10000 * prefix + base_port;
     extract_prefix = reverse_tunnel: reverse_tunnel.prefix;

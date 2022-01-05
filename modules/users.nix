@@ -129,9 +129,42 @@ in {
     public_keys_for = user: map (key: "${key} ${user.name}")
                                 user.public_keys;
   in {
-    settings.users.users.${cfg.robot.username} =
-      mkIf cfg.robot.enable (cfg.available_permission_profiles.admin //
-                             { enable = true; });
+    settings.users.users = let
+      robot_user = {
+        ${cfg.robot.username} = mkIf cfg.robot.enable (
+          cfg.available_permission_profiles.admin // { enable = true; }
+        );
+      };
+
+      # Build an attrset of all public keys defined for tunnels that need to be
+      # copied to users.
+      # See settings.reverse_tunnel.tunnels.*.copy_key_to_user
+      keysToCopy = let
+        tunnels = config.settings.reverse_tunnel.tunnels;
+
+        # Convert a tunnel definition to a partial user definition with its pubkeys
+        # We collect for every user the keys to be copied into a set
+        # We cannot use a list directly since recursiveMerge only merges attrsets
+        tunnelToUsers = t: map (u: {
+          ${u} = optionalAttrs (msf_lib.stringNotEmpty t.public_key) {
+            public_keys = { ${t.public_key} = true; };
+          };
+        }) t.copy_key_to_users;
+
+        tunnelsToUsers = msf_lib.compose [
+          # Convert the attrsets containing the keys into lists
+          (mapAttrs (_: u: { public_keys = attrNames u.public_keys; }))
+          # Merge all definitions together
+          msf_lib.recursiveMerge
+          # Apply the function converting tunnel definitions to user definitions
+          (concatMap tunnelToUsers)
+          attrValues
+        ];
+      in tunnelsToUsers tunnels;
+    in msf_lib.recursiveMerge [
+      robot_user
+      keysToCopy
+    ];
 
     users = {
       mutableUsers = false;
