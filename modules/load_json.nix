@@ -68,59 +68,68 @@ with (import ../msf_lib.nix);
         keys_json_path  = sys_cfg.keys_json_path;
         keys_json_data  = msf_lib.traceImportJSON keys_json_path;
 
+        hostPath = [ "users" "per-host" ];
+        rolePath = [ "users" "roles" ];
+        permissionProfiles = config.settings.users.available_permission_profiles;
+
+        pathToString = concatStringsSep ".";
+
+        onRoleAbsent = path: abort ''
+          The role "${pathToString path}" which was enabled for host "${hostName}" is not defined.'';
+
+        onCycle = entriesSeen: abort ''
+          Cycle detected while resolving roles: ${concatMapStringsSep " -> " pathToString entriesSeen}'';
+
+        onProfileNotFound = p: abort ''
+          Permissions profile '${p}' not found in file '${toString users_json_path}', available profiles:
+            ${concatStringsSep ", " (attrNames permissionProfiles)}'';
+
+        # Given an attrset linking users to their permission profile,
+        # resolve the permission profiles and activate the users
+        # to obtain an attrset of activated users with the requested permissions
         activateUsers = let
-          profiles = config.settings.users.available_permission_profiles;
-          onProfileNotFound = p: abort ''
-            Permissions profile '${p}' not found in file '${toString users_json_path}', available profiles:
-              ${concatStringsSep ", " (attrNames profiles)}'';
           enableProfile = p: p // { enable = true; };
-          retrieveProfile = p: if hasAttr p profiles
-                               then enableProfile(profiles.${p})
+          retrieveProfile = p: if hasAttr p permissionProfiles
+                               then enableProfile(permissionProfiles.${p})
                                else onProfileNotFound p;
         in mapAttrs (_: retrieveProfile);
 
-        enabledUsers = activateUsers (attrByPath [ "users" "per-host" hostName "enable" ]
-                                                 {}
-                                                 users_json_data);
-
-        # We maintain a list of the visited roles to be able to detect and report
+        # Activate an 'entry' which is either the top-level definition for a host,
+        # or a role. For every such entry we activate the users given in the
+        # 'enable' property and we recurse into the roles given in the
+        # 'enable_roles' property.
+        #
+        # We maintain a list of the visited entries to be able to detect and report
         # any cycles during role resolution.
         # This structure cannot be an attribute set (which would be more efficient)
         # since attribute sets do not preserve insertion order.
-        enabledUsersByRoles = let
-          # Given the host name and the json data,
-          # retrieve the enabled roles for the given host
-          enabledRoles = hostName:
-            attrByPath [ "users" "per-host" hostName "enable_roles" ] [];
+        activateEntry = onEntryAbsent: entriesSeen: path: entry: let
+          entryPath = path ++ [ entry ];
+          entriesSeen' = entriesSeen ++ [ entryPath ];
+          entryData = attrByPath entryPath (onEntryAbsent entryPath) users_json_data;
+          direct = activateUsers (attrByPath [ "enable" ] {} entryData);
+          # Note: we pass onRoleAbsent instead of onEntryAbsent in the line below
+          #       this ensures that an error is thrown if we encounter a
+          #       non-existing role
+          nested = activateEntries onRoleAbsent entriesSeen' rolePath
+                                   (attrByPath [ "enable_roles" ] [] entryData);
+        in if (elem entryPath entriesSeen)
+           then onCycle entriesSeen'
+           else recursiveUpdate direct nested;
 
-          onRoleAbsent = role: hostName: abort ''
-            The role "${role}" which was enabled for host "${hostName}" is not defined.'';
+        activateEntries = onEntryAbsent: entriesSeen: path: msf_lib.compose [
+          # Merge all the results together
+          msf_lib.recursiveMerge
+          # Activate every entry with the given parameters
+          (map (activateEntry onEntryAbsent entriesSeen path))
+        ];
 
-          onCycle = rolesSeen: abort ''
-            Cycle detected while resolving roles: ${concatStringsSep ", " rolesSeen}'';
-
-          # Activate the users in the given role, recursing into nested subroles
-          activateRole = hostName: rolesSeen: role: let
-            rolesSeen' = rolesSeen ++ [ role ];
-            roleData = attrByPath [ "users" "roles" role ]
-                                  (onRoleAbsent role hostName)
-                                  users_json_data;
-            direct = activateUsers (attrByPath [ "enable" ] {} roleData);
-            nested = activateRoles hostName rolesSeen'
-                                   (attrByPath [ "enable_roles" ] [] roleData);
-          in if (elem role rolesSeen)
-             then onCycle rolesSeen'
-             else recursiveUpdate direct nested;
-
-          activateRoles = hostName: rolesSeen: msf_lib.compose [
-            msf_lib.recursiveMerge
-            (map (activateRole hostName rolesSeen))
-          ];
-
-        in activateRoles hostName [] (enabledRoles hostName users_json_data);
-      in msf_lib.recursiveMerge [ enabledUsers
-                                  keys_json_data.keys
-                                  enabledUsersByRoles ];
+        enabledUsers = let
+          # We do not abort if a host is not found,
+          # in that case we simply do not activate any user for that host.
+          onHostAbsent = const {};
+        in activateEntry onHostAbsent [] hostPath hostName;
+      in recursiveUpdate keys_json_data.keys enabledUsers;
 
       reverse_tunnel.tunnels = let
         # We add the SSH tunnel by default
