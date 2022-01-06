@@ -88,6 +88,7 @@ with (import ../msf_lib.nix);
           AllowGroups wheel ${config.settings.users.ssh-group}
 
           AllowTcpForwarding no
+          AllowAgentForwarding no
 
           Match Group wheel
             AllowTcpForwarding yes

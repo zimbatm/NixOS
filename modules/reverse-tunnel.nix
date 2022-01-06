@@ -192,7 +192,7 @@ in {
         tunnel = let
           prefixes       = tunnel: get_prefixes tunnel.reverse_tunnels;
           mkLimitation   = base_port: prefix:
-            ''permitlisten="${toString (add_port_prefix prefix base_port)}"'';
+            ''restrict,port-forwarding,permitlisten="${toString (add_port_prefix prefix base_port)}"'';
           mkKeyConfig    = tunnel: concatStringsSep " " [
             (concatMapStringsSep "," (mkLimitation tunnel.remote_forward_port)
                                      (prefixes tunnel))
@@ -216,7 +216,9 @@ in {
           # The fwd-tunnel-group is required to be able to proxy through the relay
           extraGroups  = [ config.settings.users.ssh-group
                            config.settings.users.fwd-tunnel-group ];
-          openssh.authorizedKeys.keys = cfg.relay.tunneller.keys;
+          openssh.authorizedKeys.keys = let
+            addKeyLimitations = k: ''restrict,port-forwarding ${k}'';
+          in map addKeyLimitations cfg.relay.tunneller.keys;
         };
       };
 
