@@ -73,6 +73,18 @@ in {
       };
     };
 
+    nixos_config_update = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Periodically update the NixOS config from GitHub.
+          This option only has an effect when settings.maintenance.nixos_upgrade.enable
+          is set to false.
+        '';
+      };
+    };
+
     docker_prune_timer.enable = mkEnableOption "service to periodically run docker system prune";
   };
 
@@ -166,6 +178,9 @@ in {
         serviceConfig = {
           Type = "oneshot";
         };
+        startAt = let
+          updateCfg = cfg.nixos_config_update.enable && !cfg.nixos_upgrade.enable;
+        in optionals updateCfg cfg.nixos_upgrade.startAt;
 
         restartIfChanged = false;
         unitConfig.X-StopOnRemoval = false;
