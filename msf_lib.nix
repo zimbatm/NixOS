@@ -62,7 +62,7 @@ with lib;
       key_patterns     = {
         ssh-ed25519         = "^ssh-ed25519 ${key_data_pattern}{68}$";
         ecdsa-sha2-nistp256 = "^ecdsa-sha2-nistp256 ${key_data_pattern}{139}=$";
-        ssh-rsa             = "^ssh-rsa ${key_data_pattern}{372,}={0,2}$";
+        ssh-rsa             = "^ssh-rsa ${key_data_pattern}{370,}={0,2}$";
       };
       pub_key_pattern  = concatStringsSep "|" (attrValues key_patterns);
       description      =
