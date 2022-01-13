@@ -1,11 +1,18 @@
-# Usage:
-#   with (import ../msf_lib.nix);
-#   msf_lib.<identifier>
+/* Usage:
+     with (import ../msf_lib.nix);
+     msf_lib.<identifier>
+*/
 
 with (import <nixpkgs> {});
 with lib;
 
 {
+  /* We structure this file as one big let expression from which we will then
+     inherit all the defined functions.
+     The main reason is that let expressions are recursive while attribute sets
+     are not, so within a let expression definitions can recursively reference
+     each other independent of the order in which they have been defined.
+  */
   msf_lib = let
 
     # compose [ f g h ] x == f (g (h x))
@@ -60,15 +67,16 @@ with lib;
     pub_key_type = let
       key_data_pattern = "[[:lower:][:upper:][:digit:]\\/+]";
       key_patterns = let
-        # These prefixes consist out of 3 null bytes followed by a byte giving
-        # the length of the name of the key type, followed by the key type itself,
-        # and all of this encoded as base64.
-        # So "ssh-ed25519" is 11 characters long, which is \x0b, and thus we get
-        #   b64_encode(b"\x00\x00\x00\x0bssh-ed25519")
-        # For "ecdsa-sha2-nistp256", we have 19 chars, or \x13, and we get
-        #   b64encode(b"\x00\x00\x00\x13ecdsa-sha2-nistp256")
-        # For "ssh-rsa", we have 7 chars, or \x07, and we get
-        #   b64encode(b"\x00\x00\x00\x07ssh-rsa")
+        /* These prefixes consist out of 3 null bytes followed by a byte giving
+           the length of the name of the key type, followed by the key type itself,
+           and all of this encoded as base64.
+           So "ssh-ed25519" is 11 characters long, which is \x0b, and thus we get
+             b64_encode(b"\x00\x00\x00\x0bssh-ed25519")
+           For "ecdsa-sha2-nistp256", we have 19 chars, or \x13, and we get
+             b64encode(b"\x00\x00\x00\x13ecdsa-sha2-nistp256")
+           For "ssh-rsa", we have 7 chars, or \x07, and we get
+             b64encode(b"\x00\x00\x00\x07ssh-rsa")
+        */
         ed25519_prefix  = "AAAAC3NzaC1lZDI1NTE5";
         nistp256_prefix = "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY";
         rsa_prefix      = "AAAAB3NzaC1yc2E";
@@ -159,11 +167,11 @@ with lib;
     in {
       serviceConfig.Type = "oneshot";
 
-      # We need to explicitly set the docker runtime dependency
-      # since docker-compose does not depend on docker.
-      #
-      # nix is included so that nix-shell can be used in the external scripts
-      # called dynamically by this function
+      /* We need to explicitly set the docker runtime dependency
+         since docker-compose does not depend on docker.
+         Nix is included so that nix-shell can be used in the external scripts
+         called dynamically by this function
+      */
       path = with pkgs; [ nix docker ];
 
       environment = let
@@ -232,7 +240,6 @@ with lib;
     inherit compose applyTwice filterEnabled find_duplicates recursiveMerge
             stringNotEmpty ifPathExists traceImportJSON
             host_name_type empty_str_type pub_key_type
-            user_roles formats
             indentStr reset_git clone_and_reset_git mkDeploymentService;
   };
 }
