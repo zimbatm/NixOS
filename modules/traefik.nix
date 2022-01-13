@@ -8,8 +8,8 @@ let
   system_cfg = config.settings.system;
   docker_cfg = config.settings.docker;
 
-  # The compat version can be removed when all servers are on 20.09.
-  traefik_config_format = (pkgs.formats.yaml or msf_lib.formats.compat.yaml) {};
+  # Formatter for YAML
+  yaml_format = pkgs.formats.yaml {};
 in
 
 {
@@ -66,7 +66,7 @@ in
             default = true;
           };
           value = mkOption {
-            type = traefik_config_format.type;
+            type = yaml_format.type;
           };
         };
       });
@@ -338,12 +338,12 @@ in
                 };
             };
           } // accesslog;
-        in traefik_config_format.generate static_config_file_name static_config;
+        in yaml_format.generate static_config_file_name static_config;
 
         dynamic_config_mounts = let
           buildConfigFile = key: configFile: let
             name = "${key}.yml";
-            file = traefik_config_format.generate name configFile.value;
+            file = yaml_format.generate name configFile.value;
           in "${file}:${dynamic_config_directory_target}/${name}:ro";
           buildConfigFiles = mapAttrsToList buildConfigFile;
         in msf_lib.compose [

@@ -96,16 +96,6 @@ with lib;
       (traceValFn (f: "Loading file ${toString f}..."))
     ];
 
-    # Compatibility layer around
-    # https://nixos.org/manual/nixos/stable/index.html#sec-settings-nix-representable
-    # To be deleted when we upgraded all servers to 20.09.
-    formats.compat = {
-      yaml = const {
-        type = types.attrs;
-        generate = name: value: pkgs.writeText name (builtins.toJSON value);
-      };
-    };
-
     # Prepend a string with a given number of spaces
     # indentStr :: Int -> String -> String
     indentStr = n: str: let
