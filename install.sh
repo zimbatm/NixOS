@@ -229,20 +229,20 @@ if [ "${USE_UEFI}" = true ]; then
   mount /dev/disk/by-label/EFI /mnt/boot/efi
 fi
 
-fallocate -l 2G "${swapfile}"
+fallocate -l 4G "${swapfile}"
 chmod 0600 "${swapfile}"
 mkswap "${swapfile}"
 swapon "${swapfile}"
 
 # For the ISO, the nix store is mounted using tmpfs with default options,
 # meaning that its size is limited to 50% of physical memory.
-# On machines with low memory (< 6GB), this can cause issues.
-# Now that we have 2G of swap space, and ZRAM swap enabled,
+# On machines with low memory (< 8GB), this can cause issues.
+# Now that we have created swap space above, and have ZRAM swap enabled,
 # we can increase the size of the nix store a bit for those machines.
 total_mem=$(grep 'MemTotal:' /proc/meminfo | awk -F ' ' '{ print $2; }')
-threshold_mem=$((6 * 1000 * 1000))
+threshold_mem=$((8 * 1000 * 1000))
 if [ "${total_mem}" -lt ${threshold_mem} ]; then
-  mount --options remount,size=3G /nix/.rw-store
+  mount --options remount,size=4G /nix/.rw-store
 fi
 
 # We update the nix channel to make sure that we install up-to-date packages
