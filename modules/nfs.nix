@@ -77,11 +77,18 @@ in
 
     enabledCryptoMounts = msf_lib.filterEnabled cfg.server.cryptoMounts;
   in mkIf cfg.server.enable {
-    users.extraUsers.nfs = {
-      uid          = cfg.nfsUserId;
-      isNormalUser = false;
-      isSystemUser = true;
-      shell        = pkgs.nologin;
+    users = let
+      nfs = "nfs";
+    in {
+      extraUsers.${nfs} = {
+        uid          = cfg.nfsUserId;
+        group        = nfs;
+        isNormalUser = false;
+        isSystemUser = true;
+        shell        = pkgs.nologin;
+      };
+
+      groups.${nfs} = {};
     };
     settings.crypto.mounts = mkNfsCryptoMounts enabledCryptoMounts;
     services.nfs.server = {

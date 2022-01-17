@@ -126,9 +126,14 @@ in
 
     networking.firewall.allowedTCPPorts = [ cfg.listen_port ];
 
-    users.users.${panic_button_user} = {
-      isNormalUser = false;
-      isSystemUser = true;
+    users = {
+      users.${panic_button_user} = {
+        group = panic_button_user;
+        isNormalUser = false;
+        isSystemUser = true;
+      };
+
+      groups.${panic_button_user} = {};
     };
 
     security.sudo.extraRules = [
