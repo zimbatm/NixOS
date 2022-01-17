@@ -1,19 +1,24 @@
 /* Usage:
-     with (import ../msf_lib.nix);
-     msf_lib.<identifier>
+     with (import ../ext_lib.nix);
+
+     ext_lib.<identifier> <args>;
 */
 
 with (import <nixpkgs> {});
 with lib;
 
-{
+let
+  # TODO: remove, backwards compat.
+  # We can convert the let expression into a attrset again.
+  msf_lib = ext_lib;
+
   /* We structure this file as one big let expression from which we will then
      inherit all the defined functions.
      The main reason is that let expressions are recursive while attribute sets
      are not, so within a let expression definitions can recursively reference
      each other independent of the order in which they have been defined.
   */
-  msf_lib = let
+  ext_lib = let
 
     # compose [ f g h ] x == f (g (h x))
     compose = let
@@ -242,5 +247,7 @@ with lib;
             host_name_type empty_str_type pub_key_type
             indentStr reset_git clone_and_reset_git mkDeploymentService;
   };
+in {
+  inherit ext_lib msf_lib;
 }
 

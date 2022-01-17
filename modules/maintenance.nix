@@ -1,7 +1,7 @@
 { lib, config, pkgs, ... }:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 let
   cfg     = config.settings.maintenance;
@@ -133,7 +133,7 @@ in {
         in ''
           # Main repo
 
-          ${msf_lib.reset_git { inherit (cfg.config_repos.main) url branch;
+          ${ext_lib.reset_git { inherit (cfg.config_repos.main) url branch;
                                 git_options = [ "-C" base_path ]; }}
 
           # Organisation-specific repo
@@ -151,7 +151,7 @@ in {
             rm --recursive --force "${old_config_path}"
           fi
 
-          ${msf_lib.reset_git { inherit (cfg.config_repos.org) url branch;
+          ${ext_lib.reset_git { inherit (cfg.config_repos.org) url branch;
                                 git_options = [ "-C" config_path ]; }}
 
           # Settings link

@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 let
   cfg = config.settings.crypto;
@@ -220,7 +220,7 @@ in {
       };
     };
     systemd = let
-      enabled = msf_lib.filterEnabled cfg.mounts;
+      enabled = ext_lib.filterEnabled cfg.mounts;
       extra_mount_units = optional cfg.encrypted_opt.enable {
         enable   = cfg.encrypted_opt.enable;
         what     = "/opt/.home";

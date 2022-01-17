@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 let
   cfg = config.settings.services.traefik;
@@ -250,9 +250,9 @@ in
         dynamic_config_directory_target = "/${dynamic_config_directory_name}";
 
         static_config_file_source = let
-          generate_tls_entrypoints = msf_lib.compose [
+          generate_tls_entrypoints = ext_lib.compose [
             (mapAttrs (_: value: { address = "${value.host}:${toString value.port}"; }))
-            msf_lib.filterEnabled
+            ext_lib.filterEnabled
           ];
           letsencrypt = "letsencrypt";
           caserver       = optionalAttrs cfg.acme.staging.enable
@@ -346,9 +346,9 @@ in
             file = yaml_format.generate name configFile.value;
           in "${file}:${dynamic_config_directory_target}/${name}:ro";
           buildConfigFiles = mapAttrsToList buildConfigFile;
-        in msf_lib.compose [
+        in ext_lib.compose [
              buildConfigFiles
-             msf_lib.filterEnabled
+             ext_lib.filterEnabled
            ] cfg.dynamic_config;
 
       in {

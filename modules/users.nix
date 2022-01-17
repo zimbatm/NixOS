@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 let
   cfg     = config.settings.users;
@@ -36,7 +36,7 @@ let
       };
 
       public_keys = mkOption {
-        type    = with types; listOf msf_lib.pub_key_type;
+        type    = with types; listOf ext_lib.pub_key_type;
         default = [];
       };
 
@@ -146,22 +146,22 @@ in {
         # We collect for every user the keys to be copied into a set
         # We cannot use a list directly since recursiveMerge only merges attrsets
         tunnelToUsers = t: map (u: {
-          ${u} = optionalAttrs (msf_lib.stringNotEmpty t.public_key) {
+          ${u} = optionalAttrs (ext_lib.stringNotEmpty t.public_key) {
             public_keys = { ${t.public_key} = true; };
           };
         }) t.copy_key_to_users;
 
-        tunnelsToUsers = msf_lib.compose [
+        tunnelsToUsers = ext_lib.compose [
           # Convert the attrsets containing the keys into lists
           (mapAttrs (_: u: { public_keys = attrNames u.public_keys; }))
           # Merge all definitions together
-          msf_lib.recursiveMerge
+          ext_lib.recursiveMerge
           # Apply the function converting tunnel definitions to user definitions
           (concatMap tunnelToUsers)
           attrValues
         ];
       in tunnelsToUsers tunnels;
-    in msf_lib.recursiveMerge [
+    in ext_lib.recursiveMerge [
       robot_user
       keysToCopy
     ];
@@ -180,13 +180,13 @@ in {
       }
       //
       # Create the groups that are used for whitelisting sudo commands
-      msf_lib.compose [ (mapAttrs (_: _: {}))
-                        msf_lib.filterEnabled ]
+      ext_lib.compose [ (mapAttrs (_: _: {}))
+                        ext_lib.filterEnabled ]
                       cfg.whitelistGroups
       //
       # Create a group per user
-      msf_lib.compose [ (mapAttrs' (_: u: nameValuePair u.name {}))
-                        msf_lib.filterEnabled ]
+      ext_lib.compose [ (mapAttrs' (_: u: nameValuePair u.name {}))
+                        ext_lib.filterEnabled ]
                       cfg.users;
 
       users = let
@@ -210,13 +210,13 @@ in {
           openssh.authorizedKeys.keys = public_keys_for user;
         };
 
-        mkUsers = msf_lib.compose [ (mapAttrs mkUser)
-                                    msf_lib.filterEnabled ];
+        mkUsers = ext_lib.compose [ (mapAttrs mkUser)
+                                    ext_lib.filterEnabled ];
       in mkUsers cfg.users;
     };
 
     settings.reverse_tunnel.relay.tunneller.keys = let
-      mkKeys = msf_lib.compose [ # Filter out any duplicates
+      mkKeys = ext_lib.compose [ # Filter out any duplicates
                                  unique
                                  # Flatten this list of lists to get
                                  # a list containing all keys
@@ -232,8 +232,8 @@ in {
                              commands = map (command: { inherit command;
                                                         options = [ "SETENV" "NOPASSWD" ]; })
                                             (addDenyAll opts.commands); };
-    in msf_lib.compose [ (mapAttrsToList mkRule)
-                         msf_lib.filterEnabled ]
+    in ext_lib.compose [ (mapAttrsToList mkRule)
+                         ext_lib.filterEnabled ]
                        cfg.whitelistGroups;
   };
 }

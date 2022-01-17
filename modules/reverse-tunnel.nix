@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 let
   cfg     = config.settings.reverse_tunnel;
@@ -34,7 +34,7 @@ let
   tunnelOpts = { name, ... }: {
     options = {
       name = mkOption {
-        type = msf_lib.host_name_type;
+        type = ext_lib.host_name_type;
       };
 
       remote_forward_port = mkOption {
@@ -45,7 +45,7 @@ let
       # We allow the empty string to allow bootstrapping
       # an installation where the key has not yet been generated
       public_key = mkOption {
-        type = types.either msf_lib.empty_str_type msf_lib.pub_key_type;
+        type = types.either ext_lib.empty_str_type ext_lib.pub_key_type;
       };
 
       copy_key_to_users = mkOption {
@@ -78,7 +78,7 @@ let
       };
 
       public_key = mkOption {
-        type = msf_lib.pub_key_type;
+        type = ext_lib.pub_key_type;
       };
 
       ports = mkOption {
@@ -119,7 +119,7 @@ in {
   };
 
   config = let
-    includeTunnel  = tunnel: msf_lib.stringNotEmpty tunnel.public_key &&
+    includeTunnel  = tunnel: ext_lib.stringNotEmpty tunnel.public_key &&
                              tunnel.remote_forward_port > 0;
     add_port_prefix = prefix: base_port: 10000 * prefix + base_port;
     extract_prefix = reverse_tunnel: reverse_tunnel.prefix;
@@ -128,8 +128,8 @@ in {
 
     assertions = let
       # Functions to detect duplicate prefixes in our tunnel config
-      toDuplicatePrefixes = msf_lib.compose [
-        msf_lib.find_duplicates
+      toDuplicatePrefixes = ext_lib.compose [
+        ext_lib.find_duplicates
         get_prefixes
         (getAttr "reverse_tunnels")
       ];
@@ -137,7 +137,7 @@ in {
         sorted_prefixes = concatMapStringsSep ", " toString (naturalSort prefixes);
       in "${host}: ${sorted_prefixes}";
 
-      mkDuplicatePrefixes = msf_lib.compose [
+      mkDuplicatePrefixes = ext_lib.compose [
         # Pretty-print the results
         (mapAttrsToList pretty_print_prefixes)
         # Filter out the entries with duplicate prefixes
@@ -150,8 +150,8 @@ in {
       # Use the update_duplicates_set function to calculate
       # a set marking duplicate ports, filter out the duplicates,
       # and return the result as a list of port numbers.
-      mkDuplicatePorts = msf_lib.compose [
-        msf_lib.find_duplicates
+      mkDuplicatePorts = ext_lib.compose [
+        ext_lib.find_duplicates
         (filter (port: port != 0)) # Ignore entries with port set to zero
         (map (getAttr "remote_forward_port"))
                                    # select the port attribute
@@ -199,7 +199,7 @@ in {
             tunnel.public_key
             "tunnel@${tunnel.name}"
           ];
-          mkKeyConfigs   = msf_lib.compose [ naturalSort
+          mkKeyConfigs   = ext_lib.compose [ naturalSort
                                              (mapAttrsToList (_: mkKeyConfig))
                                              (filterAttrs (_: includeTunnel)) ];
         in {
@@ -259,7 +259,7 @@ in {
             ":localhost:"
             (toString rev_tnl.forwarded_port)
           ];
-          mkRevTunLines = port: msf_lib.compose [
+          mkRevTunLines = port: ext_lib.compose [
             (concatStringsSep " \\\n      ")
             (mapAttrsToList (_: mkRevTunLine port))
           ];

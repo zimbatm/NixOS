@@ -7,7 +7,7 @@ let
 in
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 {
   options = {
@@ -35,13 +35,13 @@ with (import ../msf_lib.nix);
           # to use a string derived from a store path without tracking
           # the dependency. This is safe in this case because we will
           # reference the original string later on in the SSHd config file.
-          hashCommand    = msf_lib.compose [ (builtins.hashString "sha256")
+          hashCommand    = ext_lib.compose [ (builtins.hashString "sha256")
                                              (builtins.unsafeDiscardStringContext) ];
           cleanResults   = mapAttrs (_: users: { inherit (builtins.head users) forceCommand;
                                                  users = map (user: user.name) users;
                                                });
           doGroupByCommand = groupBy (user: hashCommand user.forceCommand);
-          groupByCommand   = msf_lib.compose [ cleanResults doGroupByCommand attrValues ];
+          groupByCommand   = ext_lib.compose [ cleanResults doGroupByCommand attrValues ];
 
           toCfgs = mapAttrsToList (_: res: ''
                      Match User ${concatStringsSep "," res.users}
@@ -50,7 +50,7 @@ with (import ../msf_lib.nix);
                    '');
           toCfg = concatStringsSep "\n";
 
-        in msf_lib.compose [ toCfg
+        in ext_lib.compose [ toCfg
                              toCfgs
                              groupByCommand
                              filterForceCommand ];

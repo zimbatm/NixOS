@@ -1,7 +1,7 @@
 { config, lib, ...}:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 {
 
@@ -31,14 +31,14 @@ with (import ../msf_lib.nix);
                       concatStringsSep "." tunnels_json_path;
       in attrByPath tunnels_json_path (abort warn_string);
 
-      get_json_contents = dir: msf_lib.compose [
-        (map msf_lib.traceImportJSON)
+      get_json_contents = dir: ext_lib.compose [
+        (map ext_lib.traceImportJSON)
         (mapAttrsToList (name: _: dir + ("/" + name)))
         (filterAttrs (name: type: type == "regular" && hasSuffix ".json" name))
         builtins.readDir
       ] dir;
 
-    in msf_lib.compose [
+    in ext_lib.compose [
       (map get_tunnels_set)
       get_json_contents
     ];
@@ -47,8 +47,8 @@ with (import ../msf_lib.nix);
   in {
 
     assertions = let
-      mkDuplicates = msf_lib.compose [
-        msf_lib.find_duplicates
+      mkDuplicates = ext_lib.compose [
+        ext_lib.find_duplicates
         (concatMap attrNames) # map the JSON files to the server names
       ];
       duplicates = mkDuplicates tunnel_json;
@@ -64,9 +64,9 @@ with (import ../msf_lib.nix);
     settings = {
       users.users = let
         users_json_path = sys_cfg.users_json_path;
-        users_json_data = msf_lib.traceImportJSON users_json_path;
+        users_json_data = ext_lib.traceImportJSON users_json_path;
         keys_json_path  = sys_cfg.keys_json_path;
-        keys_json_data  = msf_lib.traceImportJSON keys_json_path;
+        keys_json_data  = ext_lib.traceImportJSON keys_json_path;
 
         hostPath = [ "users" "per-host" ];
         rolePath = [ "users" "roles" ];
@@ -117,9 +117,9 @@ with (import ../msf_lib.nix);
            then onCycle entriesSeen'
            else recursiveUpdate direct nested;
 
-        activateEntries = onEntryAbsent: entriesSeen: path: msf_lib.compose [
+        activateEntries = onEntryAbsent: entriesSeen: path: ext_lib.compose [
           # Merge all the results together
-          msf_lib.recursiveMerge
+          ext_lib.recursiveMerge
           # Activate every entry with the given parameters
           (map (activateEntry onEntryAbsent entriesSeen path))
         ];
@@ -144,12 +144,12 @@ with (import ../msf_lib.nix);
           };
         in recursiveUpdate tunnel ssh_tunnel;
         addSshTunnels = mapAttrs (_: addSshTunnel);
-        load_tunnel_files = msf_lib.compose [
+        load_tunnel_files = ext_lib.compose [
           addSshTunnels
           # We check in an assertion above that the two attrsets have an
           # empty intersection, so we do not need to worry about the order
           # in which we merge them here.
-          msf_lib.recursiveMerge
+          ext_lib.recursiveMerge
         ];
       in load_tunnel_files tunnel_json;
     };

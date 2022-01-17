@@ -1,7 +1,7 @@
 { config, lib, ...}:
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 let
   cfg = config.settings.network;
@@ -58,7 +58,7 @@ in {
   options = {
     settings.network = {
       host_name = mkOption {
-        type = msf_lib.host_name_type;
+        type = ext_lib.host_name_type;
       };
 
       static_ifaces = mkOption {
@@ -104,9 +104,9 @@ in {
                                static routers=${conf.gateway}
                                static domain_name_servers=${format_name_servers conf.nameservers}
                              '';
-          mkConfigs = msf_lib.compose [ (concatStringsSep "\n\n")
+          mkConfigs = ext_lib.compose [ (concatStringsSep "\n\n")
                                         (mapAttrsToList mkConfig)
-                                        msf_lib.filterEnabled ];
+                                        ext_lib.filterEnabled ];
         in mkConfigs cfg.static_ifaces;
       };
       nameservers = cfg.nameservers;

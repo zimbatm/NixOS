@@ -8,7 +8,7 @@ let
 in
 
 with lib;
-with (import ../msf_lib.nix);
+with (import ../ext_lib.nix);
 
 {
   options.settings.system = {
@@ -227,19 +227,19 @@ with (import ../msf_lib.nix);
         "This installation will probably not boot!\n" +
         "Missing device: ${device}";
       labelCondition = device: ! builtins.pathExists device;
-      mkWarnings = msf_lib.compose [
+      mkWarnings = ext_lib.compose [
         (mapAttrsToList (name: conf: mkWarningMsg name conf.device))
         (filterAttrs (_: conf: labelCondition conf.device))
-        msf_lib.filterEnabled
+        ext_lib.filterEnabled
       ];
     in
       mkWarnings cfg.partitions.partitions;
 
     fileSystems = let
       mkPartition = conf: { inherit (conf) device fsType options autoResize; };
-      mkPartitions = msf_lib.compose [
+      mkPartitions = ext_lib.compose [
                        (mapAttrs (_: mkPartition))
-                       msf_lib.filterEnabled
+                       ext_lib.filterEnabled
                      ];
       partitions = mkPartitions cfg.partitions.partitions;
     in if cfg.partitions.forcePartitions
