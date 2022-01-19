@@ -21,6 +21,8 @@ on:
         required: true
       NIXOS_SECRET_MANAGEMENT_VAULT_KEY:
         required: true
+      NIXOS_CACHIX_AUTH_KEY:
+        required: true
 
 
 jobs:
@@ -34,8 +36,42 @@ jobs:
           echo "push_robot_keys: ${{ inputs.push_robot_keys }}"
 
 
+  # If needed, we build the pythontools package and push it to Cachix
+  # It can then simply be downloaded in future steps
+  build_python_tools:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Checkout the NixOS repo
+        uses: 'actions/checkout@v2'
+        with:
+          repository: 'msf-ocb/nixos'
+          persist-credentials: false
+
+      - name: Install the Nix package manager
+        uses: cachix/install-nix-action@master
+        with:
+          nix_path: nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+
+      - name: Configure the Cachix cache
+        uses: 'cachix/cachix-action@master'
+        with:
+          name: 'msf-ocb'
+          authToken: '${{ secrets.NIXOS_CACHIX_AUTH_KEY }}'
+          pushFilter: '(-source$|nixpkgs\.tar\.gz$)'
+        continue-on-error: true
+
+      - name: Build the pythontools package
+        # It is important that we build here with exactly the same arguments
+        # as those passed by shell.nix in order for the derivation to be the
+        # same.
+        run: >-
+          nix-build ./scripts/python_nixostools/default.nix
+
+
   update_nixos_robot_keys:
     runs-on: 'ubuntu-latest'
+    needs:
+      - build_python_tools
     steps:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
@@ -55,6 +91,12 @@ jobs:
         uses: cachix/install-nix-action@master
         with:
           nix_path: nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+
+      - name: Configure the Cachix cache
+        uses: 'cachix/cachix-action@master'
+        with:
+          name: 'msf-ocb'
+        continue-on-error: true
 
       - name: Update the NixOS Robot SSH keys
         id: do_update_keys
@@ -83,6 +125,8 @@ jobs:
 
   encrypt_secrets:
     runs-on: 'ubuntu-latest'
+    needs:
+      - build_python_tools
     outputs:
       secrets_pushed_outcome: ${{ steps.commit_push_step.outcome }}
     steps:
@@ -107,6 +151,12 @@ jobs:
         uses: cachix/install-nix-action@master
         with:
           nix_path: nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+
+      - name: Configure the Cachix cache
+        uses: 'cachix/cachix-action@master'
+        with:
+          name: 'msf-ocb'
+        continue-on-error: true
 
       - name: Clear the old generated secrets files
         run: rm "org-config/secrets/generated/generated-secrets.yml"
@@ -141,7 +191,9 @@ jobs:
   build:
     name: 'build'
     runs-on: 'ubuntu-latest'
-    needs: encrypt_secrets
+    needs:
+      - build_python_tools
+      - encrypt_secrets
     # Only run this step if no new secrets were pushed,
     # otherwise the action will be retriggered anyway.
     if: >-
@@ -173,10 +225,10 @@ jobs:
         with:
           nix_path: 'nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz'
 
-      - name: Configure the Panic Button Cachix cache
+      - name: Configure the Cachix cache
         uses: 'cachix/cachix-action@master'
         with:
-          name: 'panic-button'
+          name: 'msf-ocb'
         continue-on-error: true
 
       - name: Build the NixOS configurations
