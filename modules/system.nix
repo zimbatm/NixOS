@@ -86,6 +86,16 @@ with (import ../ext_lib.nix);
       '';
     };
 
+    # It is crucial that this option has type str and not path,
+    # to avoid the private key being copied into the nix store.
+    github_private_key = mkOption {
+      type     = types.str;
+      default  = cfg.private_key;
+      description = ''
+        Location to load the private key file for GitHub from.
+      '';
+    };
+
     copy_private_key_to_store = mkOption {
       type    = types.bool;
       default = false;

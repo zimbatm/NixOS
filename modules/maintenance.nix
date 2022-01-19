@@ -117,7 +117,7 @@ in {
           GIT_SSH_COMMAND = concatStringsSep " " [
             "${pkgs.openssh}/bin/ssh"
             "-F /etc/ssh/ssh_config"
-            "-i ${sys_cfg.private_key}"
+            "-i ${sys_cfg.github_private_key}"
             "-o IdentitiesOnly=yes"
             "-o StrictHostKeyChecking=yes"
           ];

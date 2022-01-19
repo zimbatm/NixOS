@@ -176,7 +176,7 @@ with lib;
       path = with pkgs; [ nix docker ];
 
       environment = let
-        inherit (config.settings.system) private_key;
+        inherit (config.settings.system) github_private_key;
         inherit (config.settings.system.org) env_var_prefix;
       in {
         # We need to set the NIX_PATH env var so that we can resolve <nixpkgs>
@@ -185,7 +185,7 @@ with lib;
         GIT_SSH_COMMAND = concatStringsSep " " [
           "${pkgs.openssh}/bin/ssh"
           "-F /etc/ssh/ssh_config"
-          "-i ${private_key}"
+          "-i ${github_private_key}"
           "-o IdentitiesOnly=yes"
           "-o StrictHostKeyChecking=yes"
         ];
