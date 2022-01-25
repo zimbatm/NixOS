@@ -111,6 +111,13 @@ with lib;
       spacesN = compose [ concatStrings (genList (const " ")) ];
     in (spacesN n) + str;
 
+    mkSudoStartServiceCmds = { serviceName
+                             , extraOpts ? [ "--system" ] }: let
+      optsStr = concatStringsSep " " extraOpts;
+      mkStartCmd = service: "${pkgs.systemd}/bin/systemctl ${optsStr} start ${service}";
+    in [ (mkStartCmd serviceName)
+         (mkStartCmd "${serviceName}.service") ];
+
     reset_git = { url
                 , branch
                 , git_options
@@ -154,6 +161,7 @@ with lib;
     '';
 
     mkDeploymentService = { config
+                          , enable ? true
                           , deploy_dir_name
                           , github_repo
                           , git_branch ? "main"
@@ -166,6 +174,7 @@ with lib;
       deploy_dir = "/opt/${deploy_dir_name}";
       pre-compose_script_path = "${deploy_dir}/${pre-compose_script}";
     in {
+      inherit enable;
       serviceConfig.Type = "oneshot";
 
       /* We need to explicitly set the docker runtime dependency
@@ -241,7 +250,8 @@ with lib;
     inherit compose applyTwice filterEnabled find_duplicates recursiveMerge
             stringNotEmpty ifPathExists traceImportJSON
             host_name_type empty_str_type pub_key_type
-            indentStr reset_git clone_and_reset_git mkDeploymentService;
+            indentStr mkSudoStartServiceCmds
+            reset_git clone_and_reset_git mkDeploymentService;
   };
 }
 

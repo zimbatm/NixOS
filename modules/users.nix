@@ -121,6 +121,11 @@ in {
             User used for automated access (eg. Ansible)
           '';
         };
+
+        whiteListCommands = mkOption {
+          type = with types; listOf str;
+          default = [];
+        };
       };
     };
   };
@@ -131,9 +136,9 @@ in {
   in {
     settings.users.users = let
       robot_user = {
-        ${cfg.robot.username} = mkIf cfg.robot.enable (
-          cfg.available_permission_profiles.admin // { enable = true; }
-        );
+        ${cfg.robot.username} =
+          cfg.available_permission_profiles.admin //
+          { inherit (cfg.robot) enable; };
       };
 
       # Build an attrset of all public keys defined for tunnels that need to be
