@@ -134,10 +134,17 @@ in {
     public_keys_for = user: map (key: "${key} ${user.name}")
                                 user.public_keys;
   in {
+    settings.users.whitelistGroups = {
+      ${cfg.robot.username} = {
+        enable   = cfg.robot.enable;
+        commands = cfg.robot.whiteListCommands;
+      };
+    };
+
     settings.users.users = let
       robot_user = {
         ${cfg.robot.username} =
-          cfg.available_permission_profiles.admin //
+          cfg.available_permission_profiles.remoteTunnelWithShell //
           { inherit (cfg.robot) enable; };
       };
 
