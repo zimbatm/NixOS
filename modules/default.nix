@@ -8,6 +8,7 @@
     ./cachix.nix
     ./crypto.nix
     ./docker.nix
+    ./lib.nix
     ./maintenance.nix
     ./network.nix
     ./nfs.nix

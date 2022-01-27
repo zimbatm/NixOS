@@ -1,13 +1,15 @@
 { config, pkgs, lib, ... }:
 
+with lib;
+
 let
-  reverse_tunnel = config.settings.reverse_tunnel;
-  cfg_users = config.settings.users.users;
+  inherit (config.lib) ext_lib;
+
   cfg = config.settings.sshd;
+  cfg_users = config.settings.users.users;
+  cfg_rev_tun = config.settings.reverse_tunnel;
 in
 
-with lib;
-with (import ../ext_lib.nix);
 
 {
   options = {
@@ -66,8 +68,8 @@ with (import ../ext_lib.nix);
         allowSFTP = true;
         ports = let
           host_name   = config.networking.hostName;
-          relay_ports = reverse_tunnel.relay_servers.${host_name}.ports;
-        in mkIf reverse_tunnel.relay.enable relay_ports;
+          relay_ports = cfg_rev_tun.relay_servers.${host_name}.ports;
+        in mkIf cfg_rev_tun.relay.enable relay_ports;
         kexAlgorithms = [ "curve25519-sha256@libssh.org"
                           "diffie-hellman-group18-sha512"
                           "diffie-hellman-group16-sha512" ];
@@ -118,7 +120,7 @@ with (import ../ext_lib.nix);
       sshguard = mkIf config.settings.sshguard.enable {
         enable = true;
         # We are a bit more strict on the relays
-        attack_threshold = if reverse_tunnel.relay.enable
+        attack_threshold = if cfg_rev_tun.relay.enable
                            then 40 else 80;
         blocktime = 10 * 60;
         detection_time = 7 * 24 * 60 * 60;

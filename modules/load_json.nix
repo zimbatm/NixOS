@@ -1,7 +1,10 @@
 { config, lib, ...}:
 
 with lib;
-with (import ../ext_lib.nix);
+
+let
+  inherit (config.lib) ext_lib;
+in
 
 {
 

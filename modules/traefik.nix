@@ -1,9 +1,10 @@
 { config, lib, pkgs, ... }:
 
 with lib;
-with (import ../ext_lib.nix);
 
 let
+  inherit (config.lib) ext_lib;
+
   cfg = config.settings.services.traefik;
   system_cfg = config.settings.system;
   docker_cfg = config.settings.docker;

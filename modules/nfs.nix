@@ -1,9 +1,10 @@
 { config, pkgs, lib, ... }:
 
 with lib;
-with (import ../ext_lib.nix);
 
 let
+  inherit (config.lib) ext_lib;
+
   cfg = config.settings.nfs;
 
   nfsCryptoMountOpts = { name, config, ... }: {

@@ -1,9 +1,10 @@
 { config, pkgs, lib, ... }:
 
 with lib;
-with (import ../ext_lib.nix);
 
 let
+  inherit (config.lib) ext_lib;
+
   cfg     = config.settings.reverse_tunnel;
   sys_cfg = config.settings.system;
 

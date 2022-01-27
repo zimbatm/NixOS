@@ -1,14 +1,15 @@
 { config, lib, pkgs, ... }:
 
+with lib;
+
 let
+  inherit (config.lib) ext_lib;
+
   cfg        = config.settings.system;
   tnl_cfg    = config.settings.reverse_tunnel;
   crypto_cfg = config.settings.crypto;
   docker_cfg = config.settings.docker;
 in
-
-with lib;
-with (import ../ext_lib.nix);
 
 {
   options.settings.system = {

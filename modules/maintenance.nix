@@ -1,9 +1,10 @@
 { lib, config, pkgs, ... }:
 
 with lib;
-with (import ../ext_lib.nix);
 
 let
+  inherit (config.lib) ext_lib;
+
   cfg     = config.settings.maintenance;
   sys_cfg = config.settings.system;
 
