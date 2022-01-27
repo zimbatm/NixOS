@@ -109,24 +109,6 @@ in {
         default  = "ssh-rev-tun-users";
         readOnly = true;
       };
-
-      robot = {
-        enable = mkEnableOption "the robot user";
-
-        username = mkOption {
-          type     = types.str;
-          default  = "robot";
-          readOnly = true;
-          description = ''
-            User used for automated access (eg. Ansible)
-          '';
-        };
-
-        whiteListCommands = mkOption {
-          type = with types; listOf str;
-          default = [];
-        };
-      };
     };
   };
 
@@ -134,20 +116,7 @@ in {
     public_keys_for = user: map (key: "${key} ${user.name}")
                                 user.public_keys;
   in {
-    settings.users.whitelistGroups = {
-      ${cfg.robot.username} = {
-        enable   = cfg.robot.enable;
-        commands = cfg.robot.whiteListCommands;
-      };
-    };
-
     settings.users.users = let
-      robot_user = {
-        ${cfg.robot.username} =
-          cfg.available_permission_profiles.remoteTunnelWithShell //
-          { inherit (cfg.robot) enable; };
-      };
-
       # Build an attrset of all public keys defined for tunnels that need to be
       # copied to users.
       # See settings.reverse_tunnel.tunnels.*.copy_key_to_user
@@ -173,10 +142,7 @@ in {
           attrValues
         ];
       in tunnelsToUsers tunnels;
-    in ext_lib.recursiveMerge [
-      robot_user
-      keysToCopy
-    ];
+    in keysToCopy;
 
     users = {
       mutableUsers = false;
