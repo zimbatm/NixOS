@@ -46,10 +46,36 @@ with lib;
       }
     ];
 
+    /* Mount options for /tmp are not correctly applied due to a bug in nixpkgs.
+       We temporarily define the tmp.mount unit here directly with the correct
+       options until the PR in nixpkgs is merged.
+       See:
+         https://github.com/NixOS/nixpkgs/pull/157512
+       TODO: remove this once the PR has been merged
+    */
+    systemd.mounts = [
+      {
+        what = "tmpfs";
+        where = "/tmp";
+        type = "tmpfs";
+        mountConfig.Options = let
+          options = [ "mode=1777"
+                      "strictatime"
+                      "rw"
+                      "nosuid"
+                      "nodev"
+                    ] ++
+                    optional (config.boot ? tmpOnTmpfsSize)
+                             "size=${toString config.boot.tmpOnTmpfsSize}";
+        in concatStringsSep "," options;
+      }
+    ];
+
     boot = {
       growPartition = true;
       cleanTmpDir   = true;
-      tmpOnTmpfs    = true;
+      # See above, TODO put back to true once the PR merged
+      tmpOnTmpfs    = false;
 
       loader = let
         inherit (cfg) mode;
