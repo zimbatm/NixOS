@@ -44,7 +44,7 @@ jobs:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos'
+          repository: 'MSF-OCB/NixOS'
           persist-credentials: false
 
       - name: Install the Nix package manager
@@ -76,13 +76,13 @@ jobs:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos'
+          repository: 'MSF-OCB/NixOS'
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-Config repo
+      - name: Checkout the NixOS-OCB-config repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos-ocb-config'
+          repository: 'MSF-OCB/NixOS-OCB-config'
           path: 'org-config'
           ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
           persist-credentials: false
@@ -133,7 +133,7 @@ jobs:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos'
+          repository: 'MSF-OCB/NixOS'
           persist-credentials: false
 
       # By default, when running on a PR, the checkout action will checkout
@@ -146,7 +146,7 @@ jobs:
               inputs.push_secrets }}
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos-ocb-config'
+          repository: 'MSF-OCB/NixOS-OCB-config'
           path: 'org-config'
           ref: ${{ github.event.pull_request.head.ref }}
           # Do not use the default GITHUB_TOKEN for authentication,
@@ -159,7 +159,7 @@ jobs:
         if: ${{ steps.checkout_pr_with_ref.outcome == 'skipped' }}
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos-ocb-config'
+          repository: 'MSF-OCB/NixOS-OCB-config'
           path: 'org-config'
           ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
           persist-credentials: false
@@ -226,13 +226,13 @@ jobs:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos'
+          repository: 'MSF-OCB/NixOS'
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-Config repo
+      - name: Checkout the NixOS-OCB-config repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos-ocb-config'
+          repository: 'MSF-OCB/NixOS-OCB-config'
           path: 'org-config'
           ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
           persist-credentials: false
@@ -268,13 +268,13 @@ jobs:
       - name: Checkout the NixOS repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos'
+          repository: 'MSF-OCB/NixOS'
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-Config repo
+      - name: Checkout the NixOS-OCB-config repo
         uses: 'actions/checkout@v2'
         with:
-          repository: 'msf-ocb/nixos-ocb-config'
+          repository: 'MSF-OCB/NixOS-OCB-config'
           path: 'org-config'
           ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
           persist-credentials: false
@@ -306,7 +306,7 @@ jobs:
           github.ref == 'refs/heads/master' }}
     steps:
       - name: Auto-deploy the NixOS config to the requested servers
-        uses: 'msf-ocb/nixos-deploy@master'
+        uses: 'MSF-OCB/NixOS-deploy@master'
         with:
           nixos_robot_key: '${{ secrets.NIXOS_ROBOT_KEY }}'
           nixos_deploy_fixed_hosts: >-
