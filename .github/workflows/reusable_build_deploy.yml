@@ -138,9 +138,12 @@ jobs:
 
       # By default, when running on a PR, the checkout action will checkout
       # a detached HEAD. In order to be able to commit and push, we make sure
-      # that we checkout the actual PR branch.
-      - name: Checkout the NixOS-OCB-Config repo (PR)
-        if: ${{ github.event_name == 'pull_request' }}
+      # that we checkout the actual PR branch when we are going to push the secrets.
+      - name: Checkout the NixOS-OCB-Config repo (PR branch)
+        id: checkout_pr_with_ref
+        if: >-
+          ${{ github.event_name == 'pull_request' &&
+              inputs.push_secrets }}
         uses: 'actions/checkout@v2'
         with:
           repository: 'msf-ocb/nixos-ocb-config'
@@ -152,12 +155,14 @@ jobs:
           # the generated secrets, which is required for the PR validation.
           ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
 
-      - name: Checkout the NixOS-OCB-Config repo (push)
-        if: ${{ github.event_name == 'push' }}
+      - name: Checkout the NixOS-OCB-Config repo (detached HEAD)
+        if: ${{ steps.checkout_pr_with_ref.outcome == 'skipped' }}
         uses: 'actions/checkout@v2'
         with:
           repository: 'msf-ocb/nixos-ocb-config'
           path: 'org-config'
+          ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+          persist-credentials: false
 
       - name: Install the Nix package manager
         uses: cachix/install-nix-action@master
