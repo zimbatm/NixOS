@@ -136,16 +136,28 @@ jobs:
           repository: 'msf-ocb/nixos'
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-Config repo
+      # By default, when running on a PR, the checkout action will checkout
+      # a detached HEAD. In order to be able to commit and push, we make sure
+      # that we checkout the actual PR branch.
+      - name: Checkout the NixOS-OCB-Config repo (PR)
+        if: ${{ github.event_name == 'pull_request' }}
         uses: 'actions/checkout@v2'
         with:
           repository: 'msf-ocb/nixos-ocb-config'
           path: 'org-config'
+          ref: ${{ github.event.pull_request.head.ref }}
           # Do not use the default GITHUB_TOKEN for authentication,
           # See: https://docs.github.com/en/actions/reference/authentication-in-a-workflow#using-the-github_token-in-a-workflow
           # This makes sure that the action gets retriggered after committing
           # the generated secrets, which is required for the PR validation.
           ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+
+      - name: Checkout the NixOS-OCB-Config repo (push)
+        if: ${{ github.event_name == 'push' }}
+        uses: 'actions/checkout@v2'
+        with:
+          repository: 'msf-ocb/nixos-ocb-config'
+          path: 'org-config'
 
       - name: Install the Nix package manager
         uses: cachix/install-nix-action@master
@@ -178,7 +190,7 @@ jobs:
           ${{ github.event_name == 'pull_request' &&
               inputs.push_secrets }}
         id: commit_push_step
-        uses: EndBug/add-and-commit@v7
+        uses: EndBug/add-and-commit@v8
         with:
           cwd: 'org-config'
           add: 'secrets/generated/*'
