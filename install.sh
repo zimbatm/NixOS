@@ -107,8 +107,15 @@ USE_UEFI="${USE_UEFI:=true}"
 CREATE_DATA_PART="${CREATE_DATA_PART:=true}"
 
 swapfile="/mnt/swapfile"
-main_repo="git@github.com:MSF-OCB/NixOS.git"
-config_repo="git@github.com:MSF-OCB/NixOS-OCB-config.git"
+
+github_org_name="MSF-OCB"
+main_repo_name="NixOS"
+config_repo_name="NixOS-OCB-config"
+main_repo="git@github.com:${github_org_name}/${main_repo_name}.git"
+config_repo="git@github.com:${github_org_name}/${config_repo_name}.git"
+
+github_nixos_robot_name="OCB NixOS Robot"
+github_nixos_robot_email="69807852+nixos-ocb@users.noreply.github.com"
 
 if [ $EUID -ne 0 ]; then
   echo "Error this script should be run using sudo or as the root user"
@@ -151,7 +158,7 @@ fi
 
 MP=$(mountpoint --quiet /mnt/; echo $?) || true
 if [ "${MP}" -eq "0" ]; then
-  umount -R /mnt/
+  umount --recursive /mnt/
 fi
 
 cryptsetup close nixos_data_decrypted || true
@@ -212,7 +219,10 @@ if [ "${USE_UEFI}" = true ]; then
   mkfs.vfat -n EFI -F32 /dev/disk/by-partlabel/efi
 fi
 wipefs --all "${BOOT_PART}"
-mkfs.ext4 -e remount-ro -L nixos_boot "${BOOT_PART}"
+# We set the inode size to 256B for the boot partition.
+# Small partitions default to 128B inodes but these cannot store dates
+# beyond the year 2038.
+mkfs.ext4 -e remount-ro -L nixos_boot -I 256 "${BOOT_PART}"
 mkfs.ext4 -e remount-ro -L nixos_root /dev/LVMVolGroup/nixos_root
 
 if [ "${USE_UEFI}" = true ]; then
@@ -229,7 +239,7 @@ if [ "${USE_UEFI}" = true ]; then
   mount /dev/disk/by-label/EFI /mnt/boot/efi
 fi
 
-fallocate -l 4G "${swapfile}"
+fallocate --length 4G "${swapfile}"
 chmod 0600 "${swapfile}"
 mkswap "${swapfile}"
 swapon "${swapfile}"
@@ -237,11 +247,11 @@ swapon "${swapfile}"
 # For the ISO, the nix store is mounted using tmpfs with default options,
 # meaning that its size is limited to 50% of physical memory.
 # On machines with low memory (< 8GB), this can cause issues.
-# Now that we have created swap space above, and have ZRAM swap enabled,
-# we can increase the size of the nix store a bit for those machines.
+# Now that we have created swap space above, and since we have ZRAM swap enabled,
+# we can safely increase the size of the nix store for those machines.
 total_mem=$(grep 'MemTotal:' /proc/meminfo | awk -F ' ' '{ print $2; }')
 threshold_mem=$((8 * 1000 * 1000))
-if [ "${total_mem}" -lt ${threshold_mem} ]; then
+if [ "${total_mem}" -lt "${threshold_mem}" ]; then
   mount --options remount,size=4G /nix/.rw-store
 fi
 
@@ -278,7 +288,7 @@ fi
   if [ "${can_authenticate}" -ne "0" ]; then
     echo -e "\nThis server's SSH key does not give us access to GitHub."
     echo    "Please add the following public key to the file"
-    echo -e "json/tunnels.d/tunnels.json in the NixOS-OCB-config repo:\n"
+    echo -e "json/tunnels.d/tunnels.json in the ${config_repo_name} repo:\n"
     cat /tmp/id_tunnel.pub
     echo -e "\nThe installation will automatically continue once the key"
     echo    "has been added to GitHub and the deployment actions have"
@@ -301,8 +311,8 @@ fi
 
 # Set some global Git settings
 nix-shell --packages git --run "git config --global pull.rebase true"
-nix-shell --packages git --run "git config --global user.name 'OCB NixOS Robot'"
-nix-shell --packages git --run "git config --global user.email '69807852+nixos-ocb@users.noreply.github.com'"
+nix-shell --packages git --run "git config --global user.name '${github_nixos_robot_name}'"
+nix-shell --packages git --run "git config --global user.email '${github_nixos_robot_email}'"
 nix-shell --packages git --run "git config --global core.sshCommand 'ssh -i /tmp/id_tunnel'"
 
 # Commit a new encryption key to GitHub, if one does not exist yet
@@ -342,7 +352,7 @@ if [ "${CREATE_DATA_PART}" = true ]; then
                        --hostname ${TARGET_HOSTNAME} \
                        --secrets_file ${config_dir}/secrets/nixos_encryption-secrets.yml"
 
-    random_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10)
+    random_id=$(tr --complement --delete A-Za-z0-9 < /dev/urandom | head --bytes=10)
     branch_name="installer_commit_enc_key_${TARGET_HOSTNAME}_${random_id}"
     nix-shell --packages git --run "git -C ${config_dir} \
                                         checkout -b ${branch_name}"
@@ -356,7 +366,7 @@ if [ "${CREATE_DATA_PART}" = true ]; then
 
     echo -e "\n\nThe encryption key for this server was committed to GitHub"
     echo -e "Please go to the following link to create a pull request:"
-    echo -e "\nhttps://github.com/MSF-OCB/NixOS-OCB-config/pull/new/${branch_name}\n"
+    echo -e "\nhttps://github.com/${github_org_name}/${config_repo_name}/pull/new/${branch_name}\n"
     echo -e "The installer will continue once the pull request has been merged into master."
 
     nix-shell --packages git --run "git -C ${config_dir} \
@@ -420,11 +430,11 @@ fi
 nixos-install --no-root-passwd --max-jobs 4
 
 swapoff "${swapfile}"
-rm -f "${swapfile}"
+rm --force "${swapfile}"
 
 if [ "${CREATE_DATA_PART}" = true ]; then
-  umount -R /mnt/home
-  umount -R /mnt/opt
+  umount --recursive /mnt/home
+  umount --recursive /mnt/opt
   cryptsetup close nixos_data_decrypted
 fi
 
