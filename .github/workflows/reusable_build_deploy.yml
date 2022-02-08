@@ -355,7 +355,7 @@ jobs:
     # We only want to deploy when commits have been pushed to master
     if: >-
       ${{ ! failure() &&
-          ( github.event_name == 'push'
+          ( github.event_name == 'push' ||
             github.event_name == 'workflow_dispatch' ) &&
           github.ref == 'refs/heads/master' }}
     steps:
