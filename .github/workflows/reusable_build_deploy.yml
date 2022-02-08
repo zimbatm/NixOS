@@ -154,7 +154,8 @@ jobs:
         id: do_update_keys
         if: >-
           ${{ inputs.push_robot_keys &&
-              github.event_name == 'push' &&
+              ( github.event_name == 'push' ||
+                github.event_name == 'workflow_dispatch' ) &&
               github.ref == 'refs/heads/master' }}
         run: >-
           nix-shell ./scripts/python_nixostools/shell.nix --run
@@ -354,7 +355,8 @@ jobs:
     # We only want to deploy when commits have been pushed to master
     if: >-
       ${{ ! failure() &&
-          github.event_name == 'push' &&
+          ( github.event_name == 'push'
+            github.event_name == 'workflow_dispatch' ) &&
           github.ref == 'refs/heads/master' }}
     steps:
       - name: Auto-deploy the NixOS config to the requested servers
