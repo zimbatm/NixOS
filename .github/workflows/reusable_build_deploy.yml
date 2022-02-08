@@ -9,26 +9,77 @@ on:
       push_secrets:
         required: true
         type: boolean
+        description: |-
+          Whether generated secrets should be pushed back to the branch.
       push_robot_keys:
         required: true
         type: boolean
+        description: |-
+          Whether the public SSH keys for the GitHub robot  user should be
+          updated.
+      nix_path:
+        required: false
+        default: |-
+          nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+        type: string
+        description: |-
+          The nix channel to set when installing Nix.
+      main_repo:
+        required: false
+        default: "MSF-OCB/NixOS"
+        type: string
+        description: |-
+          The main repo containing the NixOS config
+      org_repo:
+        required: false
+        default: "MSF-OCB/NixOS-OCB-config"
+        type: string
+        description: |-
+          The repo containing the organisation-specific NixOS config.
+      cachix_cache:
+        required: false
+        default: "msf-ocb"
+        type: string
+        description: |-
+          The Cachix cache to use.
+
     secrets:
       NIXOS_OCB_CONFIG_DEPLOY_KEY:
         required: true
+        description: |-
+          The deploy key used to check out the org repo (read-only).
+      NIXOS_OCB_SECRETS_COMMIT_DEPLOY_KEY:
+        required: true
+        description: |-
+          The deploy key used to commit the generated secrets back to the
+          org repo, this one needs to be read-write if the push_secrets input
+          is set to true.
       NIXOS_OCB_KEY_MGMT_API_TOKEN:
         required: true
+        description: |-
+          API token that gives access to the GitHub API to manage the public SSH
+          keys for the robot GitHub user.
+          This is a PAT belonging to the user to which the public keys should be
+          added.
       NIXOS_ROBOT_KEY:
         required: true
+        description: |-
+          Private SSH key for the robot user, corresponding to the public key
+          defined for this user in the org repo.
       NIXOS_SECRET_MANAGEMENT_VAULT_KEY:
         required: true
+        description: |-
+          The vault key with which the secret files have been encrypted.
       NIXOS_CACHIX_AUTH_KEY:
         required: true
+        description: |-
+          The auth key for the cachix cache.
 
 
 jobs:
 
   log_inputs:
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     steps:
       - name: Log inputs
         run: |-
@@ -39,25 +90,26 @@ jobs:
   # If needed, we build the pythontools package and push it to Cachix
   # It can then simply be downloaded in future steps
   build_python_tools:
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     steps:
-      - name: Checkout the NixOS repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the main repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS'
+          repository: "${{ inputs.main_repo }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
         uses: cachix/install-nix-action@master
         with:
-          nix_path: nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+          nix_path: "${{ inputs.nix_path }}"
 
       - name: Configure the Cachix cache
-        uses: 'cachix/cachix-action@master'
+        uses: "cachix/cachix-action@master"
         with:
-          name: 'msf-ocb'
-          authToken: '${{ secrets.NIXOS_CACHIX_AUTH_KEY }}'
-          pushFilter: '(-source$|nixpkgs\.tar\.gz$)'
+          name: "${{ inputs.cachix_cache }}"
+          authToken: "${{ secrets.NIXOS_CACHIX_AUTH_KEY }}"
+          pushFilter: |-
+            (-source$|nixpkgs\.tar\.gz$)
         continue-on-error: true
 
       - name: Build the pythontools package
@@ -69,33 +121,33 @@ jobs:
 
 
   update_nixos_robot_keys:
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     needs:
       - build_python_tools
     steps:
-      - name: Checkout the NixOS repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the main repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS'
+          repository: "${{ inputs.main_repo }}"
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-config repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the org repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS-OCB-config'
-          path: 'org-config'
-          ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+          repository: "${{ inputs.org_repo }}"
+          path: "org-config"
+          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
-        uses: cachix/install-nix-action@master
+        uses: "cachix/install-nix-action@master"
         with:
-          nix_path: nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+          nix_path: "${{ inputs.nix_path }}"
 
       - name: Configure the Cachix cache
-        uses: 'cachix/cachix-action@master'
+        uses: "cachix/cachix-action@master"
         with:
-          name: 'msf-ocb'
+          name: "${{ inputs.cachix_cache }}"
         continue-on-error: true
 
       - name: Update the NixOS Robot SSH keys
@@ -124,55 +176,55 @@ jobs:
 
 
   encrypt_secrets:
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     needs:
       - build_python_tools
     outputs:
       secrets_pushed_outcome: ${{ steps.commit_push_step.outcome }}
     steps:
-      - name: Checkout the NixOS repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the main repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS'
+          repository: "${{ inputs.main_repo }}"
           persist-credentials: false
 
       # By default, when running on a PR, the checkout action will checkout
       # a detached HEAD. In order to be able to commit and push, we make sure
       # that we checkout the actual PR branch when we are going to push the secrets.
-      - name: Checkout the NixOS-OCB-Config repo (PR branch)
+      - name: Checkout the org repo (PR branch)
         id: checkout_pr_with_ref
         if: >-
           ${{ github.event_name == 'pull_request' &&
               inputs.push_secrets }}
-        uses: 'actions/checkout@v2'
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS-OCB-config'
-          path: 'org-config'
-          ref: ${{ github.event.pull_request.head.ref }}
+          repository: "${{ inputs.org_repo }}"
+          path: "org-config"
+          ref: "${{ github.event.pull_request.head.ref }}"
           # Do not use the default GITHUB_TOKEN for authentication,
           # See: https://docs.github.com/en/actions/reference/authentication-in-a-workflow#using-the-github_token-in-a-workflow
           # This makes sure that the action gets retriggered after committing
           # the generated secrets, which is required for the PR validation.
-          ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
 
-      - name: Checkout the NixOS-OCB-Config repo (detached HEAD)
+      - name: Checkout the org repo (detached HEAD)
         if: ${{ steps.checkout_pr_with_ref.outcome == 'skipped' }}
-        uses: 'actions/checkout@v2'
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS-OCB-config'
-          path: 'org-config'
-          ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+          repository: "${{ inputs.org_repo }}"
+          path: "org-config"
+          ssh-key: "${{ secrets.NIXOS_OCB_SECRETS_COMMIT_DEPLOY_KEY }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
         uses: cachix/install-nix-action@master
         with:
-          nix_path: nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz
+          nix_path: "${{ inputs.nix_path }}"
 
       - name: Configure the Cachix cache
-        uses: 'cachix/cachix-action@master'
+        uses: "cachix/cachix-action@master"
         with:
-          name: 'msf-ocb'
+          name: "${{ inputs.cachix_cache }}"
         continue-on-error: true
 
       - name: Clear the old generated secrets files
@@ -195,10 +247,10 @@ jobs:
           ${{ github.event_name == 'pull_request' &&
               inputs.push_secrets }}
         id: commit_push_step
-        uses: EndBug/add-and-commit@v8
+        uses: "EndBug/add-and-commit@v8"
         with:
-          cwd: 'org-config'
-          add: 'secrets/generated/*'
+          cwd: "org-config"
+          add: "secrets/generated/*"
           message: |
             Commit newly generated secrets (GitHub Action: ${{ github.workflow }}).
           default_author: github_actions
@@ -206,8 +258,8 @@ jobs:
 
 
   build:
-    name: 'build'
-    runs-on: 'ubuntu-latest'
+    name: "build"
+    runs-on: "ubuntu-latest"
     needs:
       - build_python_tools
       - encrypt_secrets
@@ -223,29 +275,29 @@ jobs:
         group_count: [ 5 ]
         group_id: [ 0, 1, 2, 3, 4 ]
     steps:
-      - name: Checkout the NixOS repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the main repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS'
+          repository: "${{ inputs.main_repo }}"
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-config repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the org repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS-OCB-config'
-          path: 'org-config'
-          ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+          repository: "${{ inputs.org_repo }}"
+          path: "org-config"
+          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
-        uses: 'cachix/install-nix-action@master'
+        uses: "cachix/install-nix-action@master"
         with:
-          nix_path: 'nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz'
+          nix_path: "${{ inputs.nix_path }}"
 
       - name: Configure the Cachix cache
-        uses: 'cachix/cachix-action@master'
+        uses: "cachix/cachix-action@master"
         with:
-          name: 'msf-ocb'
+          name: "${{ inputs.cachix_cache }}"
         continue-on-error: true
 
       - name: Build the NixOS configurations
@@ -257,7 +309,7 @@ jobs:
 
 
   build_iso:
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     needs: encrypt_secrets
     # Only run this step if new secrets were pushed,
     # otherwise the action will be retriggered anyway.
@@ -265,36 +317,36 @@ jobs:
       ${{ ! failure() &&
           needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
     steps:
-      - name: Checkout the NixOS repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the main repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS'
+          repository: "${{ inputs.main_repo }}"
           persist-credentials: false
 
-      - name: Checkout the NixOS-OCB-config repo
-        uses: 'actions/checkout@v2'
+      - name: Checkout the org repo
+        uses: "actions/checkout@v2"
         with:
-          repository: 'MSF-OCB/NixOS-OCB-config'
-          path: 'org-config'
-          ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+          repository: "${{ inputs.org_repo }}"
+          path: "org-config"
+          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
-        uses: 'cachix/install-nix-action@master'
+        uses: "cachix/install-nix-action@master"
         with:
-          nix_path: 'nixpkgs=https://nix-channel-redirect.ocb.msf.org/nixexprs.tar.xz'
+          nix_path: "${{ inputs.nix_path }}"
 
       - name: Build the ISO image
         run: >-
           touch ./local/id_tunnel_iso &&
           nix-instantiate
-          '<nixpkgs/nixos>'
+          "<nixpkgs/nixos>"
           -A config.system.build.isoImage
           -I nixos-config='rescue_iso/iso.nix'
 
 
   deploy:
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     needs:
       - build
       - build_iso
@@ -306,12 +358,12 @@ jobs:
           github.ref == 'refs/heads/master' }}
     steps:
       - name: Auto-deploy the NixOS config to the requested servers
-        uses: 'MSF-OCB/NixOS-deploy@master'
+        uses: "MSF-OCB/NixOS-deploy@master"
         with:
-          nixos_robot_key: '${{ secrets.NIXOS_ROBOT_KEY }}'
+          nixos_robot_key: "${{ secrets.NIXOS_ROBOT_KEY }}"
           nixos_deploy_fixed_hosts: >-
             sshrelay1.ocb.msf.org
             sshrelay2.ocb.msf.org
             sshrelay-za-1.ocb.msf.org
-          nixos_deploy_service: 'nixos_rebuild_config.service'
+          nixos_deploy_service: "nixos_rebuild_config.service"
 
