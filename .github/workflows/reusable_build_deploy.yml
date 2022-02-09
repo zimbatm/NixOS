@@ -118,7 +118,7 @@ jobs:
           # See: https://docs.github.com/en/actions/reference/authentication-in-a-workflow#using-the-github_token-in-a-workflow
           # This makes sure that the action gets retriggered after committing
           # the generated secrets, which is required for the PR validation.
-          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
+          ssh-key: "${{ secrets.NIXOS_OCB_SECRETS_COMMIT_DEPLOY_KEY }}"
 
       - name: Checkout the org repo (detached HEAD)
         if: ${{ steps.checkout_pr_with_ref.outcome == 'skipped' }}
@@ -126,7 +126,7 @@ jobs:
         with:
           repository: "${{ inputs.org_repo }}"
           path: "org-config"
-          ssh-key: "${{ secrets.NIXOS_OCB_SECRETS_COMMIT_DEPLOY_KEY }}"
+          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
