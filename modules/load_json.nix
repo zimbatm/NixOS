@@ -93,7 +93,7 @@ in
         activateUsers = let
           enableProfile = p: p // { enable = true; };
           retrieveProfile = p: if hasAttr p permissionProfiles
-                               then enableProfile(permissionProfiles.${p})
+                               then enableProfile permissionProfiles.${p}
                                else onProfileNotFound p;
         in mapAttrs (_: retrieveProfile);
 
