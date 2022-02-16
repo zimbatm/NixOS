@@ -107,8 +107,8 @@ jobs:
       - name: Checkout the org repo (PR branch)
         id: checkout_pr_with_ref
         if: >-
-          ${{ github.event_name == 'pull_request' &&
-              inputs.push_secrets }}
+          github.event_name == 'pull_request' &&
+          inputs.push_secrets
         uses: "actions/checkout@v2"
         with:
           repository: "${{ inputs.org_repo }}"
@@ -121,7 +121,7 @@ jobs:
           ssh-key: "${{ secrets.NIXOS_OCB_SECRETS_COMMIT_DEPLOY_KEY }}"
 
       - name: Checkout the org repo (detached HEAD)
-        if: ${{ steps.checkout_pr_with_ref.outcome == 'skipped' }}
+        if: steps.checkout_pr_with_ref.outcome == 'skipped'
         uses: "actions/checkout@v2"
         with:
           repository: "${{ inputs.org_repo }}"
@@ -160,8 +160,8 @@ jobs:
         # is not the last commit of this PR, as checked by the check_secrets_ok job.
         # This avoids an infinite loop where the secrets keep on being regenerated.
         if: >-
-          ${{ github.event_name == 'pull_request' &&
-              inputs.push_secrets }}
+          github.event_name == 'pull_request' &&
+          inputs.push_secrets
         id: commit_push_step
         uses: "EndBug/add-and-commit@v8"
         with:
@@ -177,6 +177,7 @@ jobs:
     runs-on: "ubuntu-latest"
     needs:
       - encrypt_secrets
+    if: needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped'
     steps:
       - name: Checkout the main repo
         uses: "actions/checkout@v2"
@@ -206,10 +207,10 @@ jobs:
       - name: Update the NixOS Robot SSH keys
         id: do_update_keys
         if: >-
-          ${{ inputs.push_robot_keys &&
-              ( github.event_name == 'push' ||
-                github.event_name == 'workflow_dispatch' ) &&
-              github.ref == 'refs/heads/master' }}
+          inputs.push_robot_keys &&
+          ( github.event_name == 'push' ||
+            github.event_name == 'workflow_dispatch' ) &&
+          github.ref == 'refs/heads/master'
         run: >-
           nix-shell ./scripts/python_nixostools/shell.nix --run
           "update_nixos_keys
@@ -218,8 +219,7 @@ jobs:
           --tunnel_config_path './org-config/json/tunnels.d/'"
 
       - name: Update the NixOS Robot SSH keys (dry run)
-        if: >-
-          ${{ steps.do_update_keys.outcome == 'skipped' }}
+        if: steps.do_update_keys.outcome == 'skipped'
         run: >-
           nix-shell ./scripts/python_nixostools/shell.nix --run
           "update_nixos_keys
@@ -236,9 +236,7 @@ jobs:
       - encrypt_secrets
     # Only run this step if no new secrets were pushed,
     # otherwise the action will be retriggered anyway.
-    if: >-
-      ${{ ! failure() &&
-          needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
+    if: needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped'
     strategy:
       matrix:
         # When changing these settings, you need to change as well
@@ -284,9 +282,7 @@ jobs:
     needs: encrypt_secrets
     # Only run this step if new secrets were pushed,
     # otherwise the action will be retriggered anyway.
-    if: >-
-      ${{ ! failure() &&
-          needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped' }}
+    if: needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped'
     steps:
       - name: Checkout the main repo
         uses: "actions/checkout@v2"
@@ -324,10 +320,9 @@ jobs:
       - update_nixos_robot_keys
     # We only want to deploy when commits have been pushed to master
     if: >-
-      ${{ ! failure() &&
-          ( github.event_name == 'push' ||
-            github.event_name == 'workflow_dispatch' ) &&
-          github.ref == 'refs/heads/master' }}
+      ( github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ) &&
+      github.ref == 'refs/heads/master'
     steps:
       - name: Auto-deploy the NixOS config to the requested servers
         uses: "MSF-OCB/NixOS-deploy@master"
