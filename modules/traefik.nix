@@ -43,8 +43,7 @@ in
 
     version = mkOption {
       type = types.str;
-      default = "2.6";
-      readOnly = true;
+      default = "latest";
     };
 
     image = mkOption {
@@ -149,8 +148,14 @@ in
         type = types.str;
       };
 
+      dns_providers = mkOption {
+        type     = with types; attrsOf str;
+        default  = { azure = "azure"; route53 = "route53"; };
+        readOnly = true;
+      };
+
       dns_provider = mkOption {
-        type = types.enum [ "azure" "route53" ];
+        type = types.enum (attrValues cfg.acme.dns_providers);
       };
     };
   };
