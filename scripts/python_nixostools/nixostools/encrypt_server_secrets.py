@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from functools   import reduce
 from getpass     import getpass
 from textwrap    import wrap
-from typing      import Any, Iterable, List, Mapping
+from typing      import Any, Callable, Iterable, List, Mapping
 from nacl.public import PublicKey # type: ignore
 
 from nixostools import ansible_vault_lib, secret_lib, ocb_nixos_lib
@@ -128,7 +128,7 @@ def encrypt_data(data: PaddedServerSecretData,
 # we pad the plaintexts with newlines such that they all have equal length.
 # It is important to look at the length in bytes, rather than
 # the length in characters, to account for variable-width encoding.
-def pad_secrets(data: Iterable[ServerSecretData]) -> Iterable[PaddedServerSecretData]:
+def pad_secrets(data: List[ServerSecretData]) -> Iterable[PaddedServerSecretData]:
   # We round the max length up to the nearest 10**exp
   # So for instance, for exp = 3, 24869 -> 25000
   # Upper is the part > 10**exp, so for our example
@@ -212,6 +212,13 @@ def check_duplicate_secrets(secrets_files: Iterable[str], ansible_passwd: str) -
       print(f"ERROR: secret with name '{secret}' is defined in multiple files: {', '.join(files)}")
 
 
+def is_active_secret(tunnels_json: Mapping) -> Callable[[ServerSecretData], bool]:
+  def wrapped(data: ServerSecretData) -> bool:
+    return bool(tunnels_json['tunnels']['per-host'].get(data.server_name, {})
+                                                   .get('generate_secrets', True))
+  return wrapped
+
+
 def main() -> None:
   args = args_parser().parse_args()
 
@@ -223,7 +230,10 @@ def main() -> None:
   tunnels_json = ocb_nixos_lib.read_json_configs(args.tunnel_config_path)
 
   secrets = get_secrets(secrets_dict)
-  padded_secrets = pad_secrets(secrets)
+  # An iterator can only be consumed once,
+  # so we transform it into a list before passing it along
+  active_secrets = list(filter(is_active_secret(tunnels_json), secrets))
+  padded_secrets = pad_secrets(active_secrets)
 
   write_secrets([ encrypt_data(secrets,
                                secret_lib.extract_public_key(tunnels_json,

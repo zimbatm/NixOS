@@ -49,6 +49,15 @@ let
         type = types.either ext_lib.empty_str_type ext_lib.pub_key_type;
       };
 
+      generate_secrets = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Setting used by the python scripts generating the secrets.
+          Setting this option to false makes sure that no secrets get generated for this host.
+        '';
+      };
+
       copy_key_to_users = mkOption {
         type    = with types; listOf str;
         default = [];
