@@ -5,7 +5,6 @@ import argparse
 import collections
 import dataclasses
 import glob
-import itertools
 import json
 import os
 import traceback
@@ -192,22 +191,21 @@ def read_secrets_files(secrets_files: Iterable[str], ansible_passwd: str) -> Map
 
 def check_duplicate_secrets(secrets_files: Iterable[str], ansible_passwd: str) -> None:
   print(f"Finding duplicates...")
-  def reducer(secrets_data: Mapping, secrets_file: str) -> Mapping:
+  def build_secrets_mapping(secrets_data: Mapping, secrets_file: str) -> Mapping:
     new_secrets = ansible_vault_lib.read_vault_file(ansible_passwd, secrets_file)
 
     # Make a mapping of every secret to the files defining a secret with that name
     secrets = { **secrets_data }
     for secret in new_secrets.get(SECRETS_KEY, {}).keys():
-      if not secret in secrets:
-        secrets[secret] = []
-      secrets[secret] = itertools.chain(secrets[secret], [secrets_file])
+      files_found = secrets.get(secret, [])
+      secrets[secret] = files_found + [secrets_file]
 
     return secrets
 
   secret: str
   files: Iterable[str]
   init: Mapping = {}
-  for (secret, files) in reduce(reducer, secrets_files, init).items():
+  for (secret, files) in reduce(build_secrets_mapping, secrets_files, init).items():
     if len(list(files)) > 1:
       print(f"ERROR: secret with name '{secret}' is defined in multiple files: {', '.join(files)}")
 
