@@ -4,7 +4,7 @@ import yaml
 
 from base64      import b64decode
 from textwrap    import wrap
-from typing      import Any, Mapping
+from typing      import Any, Mapping, Optional
 
 import nacl.utils # type: ignore
 from nacl.encoding import RawEncoder, Base64Encoder # type: ignore
@@ -101,15 +101,25 @@ def extract_curve_private_key(priv_key: str) -> PrivateKey:
 # Extract the public key from the JSON data and cut away the header
 def extract_public_key(tunnels_json: Mapping,
                        server: str,
-                       public_keys_path: str) -> PublicKey:
+                       public_keys_path: str) -> Optional[PublicKey]:
+  def raise_wrong_format():
+    raise Exception(f"Error parsing the public key for server {server}, wrong format.")
+
   server_tunnel_data = tunnels_json['tunnels']['per-host'].get(server)
   if not server_tunnel_data:
     raise Exception(f'Server {server} not found in "{public_keys_path}".')
+  if not server_tunnel_data['public_key'].strip():
+    # The server is defined but has an empty public key
+    # This happens for servers being provisioned
+    return None
   # Find the public key, strip off the header,
   # and discard anything following the key
-  pubkey_chars = server_tunnel_data['public_key'].split(' ', 2)[1]
+  pubkey_splitted = server_tunnel_data['public_key'].split(' ', 2)
+  if len(pubkey_splitted) < 2:
+    raise_wrong_format()
+  pubkey_chars = pubkey_splitted[1]
   if not len(pubkey_chars) == OPENSSH_PUBLIC_KEY_STRING_LENGTH:
-    raise Exception(f"Error parsing the public key for server {server}.")
+    raise_wrong_format
   return extract_curve_public_key(pubkey_chars)
 
 

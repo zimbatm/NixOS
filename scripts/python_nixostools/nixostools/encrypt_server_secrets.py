@@ -233,11 +233,14 @@ def main() -> None:
   active_secrets = list(filter(is_active_secret(tunnels_json), secrets))
   padded_secrets = pad_secrets(active_secrets)
 
-  write_secrets([ encrypt_data(secrets,
-                               secret_lib.extract_public_key(tunnels_json,
-                                                             secrets.server_name,
-                                                             args.tunnel_config_path))
-                  for secrets in padded_secrets ],
+  write_secrets([ encrypt_data(secrets, pub_key)
+                  for secrets in padded_secrets
+                  for pub_key in [ secret_lib.extract_public_key(tunnels_json,
+                                                                 secrets.server_name,
+                                                                 args.tunnel_config_path) ]
+                  # pub_key is None when the public_key field is empty
+                  # this happens when we are provisioning servers
+                  if pub_key ],
                 args.output_path)
 
 
