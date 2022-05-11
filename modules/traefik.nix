@@ -205,7 +205,6 @@ in
                   "${compress-middleware}@file"
                 ];
                 ${security-headers}.headers = {
-                  browserXssFilter = true;
                   referrerPolicy = "no-referrer, strict-origin-when-cross-origin";
                   customFrameOptionsValue = "SAMEORIGIN";
                   customResponseHeaders = {
