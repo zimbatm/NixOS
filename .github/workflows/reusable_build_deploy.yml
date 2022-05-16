@@ -269,35 +269,6 @@ jobs:
           name: "${{ inputs.cachix_cache }}"
         continue-on-error: true
 
-      - name: Setup Nix Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            nix_store_cache
-            nix_store_db.sqlite
-          key:
-            build-nix-store-cache-${{ matrix.group_id }}-${{ github.sha }}
-          # fall back to (latest) previous cache
-          restore-keys: |
-            build-nix-store-cache-${{ matrix.group_id }}
-            build-nix-store-cache-
-
-      - name: Restore cached nix store
-        run: |
-          if [ -e nix_store_db.sqlite ]; then
-            sudo systemctl stop nix-daemon
-            # put cached store paths back in their proper locations
-            sudo rm -rf /nix/store /nix/var/nix/db/db.sqlite
-            sudo mv nix_store_cache /nix/store
-            sudo cp nix_store_db.sqlite /nix/var/nix/db/db.sqlite
-            # fix store permissions
-            sudo chmod 1775 /nix/store
-            sudo chown root:nixbld /nix/store
-            sudo chmod 0644 /nix/var/nix/db/db.sqlite
-            sudo chown --recursive root:root /nix/store /nix/var/nix/db/db.sqlite
-            sudo systemctl start nix-daemon
-          fi
-
       - name: Build the NixOS configurations
         run: >-
           nix-shell ./scripts/python_nixostools/shell.nix --run
