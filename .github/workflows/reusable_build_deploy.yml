@@ -276,15 +276,6 @@ jobs:
           --group_amount ${{ matrix.group_count }}
           --group_id ${{ matrix.group_id }}"
 
-      - name: Prepare the nix store for caching
-        run: |
-          # delete old stuff not relevant to this build
-          nix-collect-garbage --delete-older-than 1d
-          sudo systemctl stop nix-daemon
-          # move store to a place where the cache action can read it
-          sudo mv /nix/store nix_store_cache
-          sudo mv /nix/var/nix/db/db.sqlite nix_store_db.sqlite
-
 
   build_iso:
     runs-on: "ubuntu-latest"
