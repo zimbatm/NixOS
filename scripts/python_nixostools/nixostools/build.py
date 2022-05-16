@@ -97,7 +97,8 @@ def build_config(build_dir: str, hostname: str, retry: bool = False):
   proc = subprocess.run([ 'nix-build',
                           '<nixpkgs/nixos>',
                           '-I', f'nixos-config={config_path}',
-                          '-A', 'system' ],
+                          '-A', 'system',
+                          '--no-out-link' ],
                         stdout = PIPE, stderr = PIPE)
   print(proc.stderr.decode())
   print(proc.stdout.decode())
