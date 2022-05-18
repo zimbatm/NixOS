@@ -163,17 +163,16 @@ in
            then attrsets
            else abort msg;
 
-        enabledUsersForHost = host: let
+        enabledUsersForHost = let
           # We do not abort if a host is not found,
           # in that case we simply do not activate any user for that host.
           onHostAbsent = const {};
-          enabledUsers = ext_lib.compose [
-            activateUsers          # Activate all users
-            ext_lib.recursiveMerge # Merge everything together
-            ensure_no_duplicates   # Detect any users with multiple permissions
-            (resolveEntry onHostAbsent [] hostPath) # resolve the entry for the current server
-          ];
-        in enabledUsers host;
+        in ext_lib.compose [
+          activateUsers          # Activate all users
+          ext_lib.recursiveMerge # Merge everything together
+          ensure_no_duplicates   # Detect any users with multiple permissions
+          (resolveEntry onHostAbsent [] hostPath) # resolve the entry for the current server
+        ];
 
         enabledUsers = enabledUsersForHost hostName;
 
