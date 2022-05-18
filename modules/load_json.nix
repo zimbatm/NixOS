@@ -19,6 +19,8 @@ in
     sys_cfg  = config.settings.system;
     hostName = config.settings.network.host_name;
 
+    pathToString = concatStringsSep ".";
+
     get_tunnel_contents = let
 
       /*
@@ -31,7 +33,7 @@ in
       get_tunnels_set = let
         tunnels_json_path = [ "tunnels" "per-host" ];
         warn_string = "ERROR: JSON structure does not contain the attribute " +
-                      concatStringsSep "." tunnels_json_path;
+                      pathToString tunnels_json_path;
       in attrByPath tunnels_json_path (abort warn_string);
 
       get_json_contents = dir: ext_lib.compose [
@@ -74,8 +76,6 @@ in
         hostPath = [ "users" "per-host" ];
         rolePath = [ "users" "roles" ];
         permissionProfiles = config.settings.users.available_permission_profiles;
-
-        pathToString = concatStringsSep ".";
 
         onRoleAbsent = path: let
           formatRoles = ext_lib.compose [
