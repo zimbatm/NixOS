@@ -20,6 +20,10 @@ let
 
   filterEnabled = filterAttrs (_: conf: conf.enable);
 
+  # concatMapAttrsToList :: (String -> v -> [a]) -> AttrSet -> [a]
+  concatMapAttrsToList = f: compose [ concatLists
+                                      (mapAttrsToList f) ];
+
   /* Find duplicate elements in a list in O(n) time
 
      Example:
@@ -41,6 +45,20 @@ let
     attrNames                        # return the name only
     (filterAttrs (flip const))       # filter on trueness of the value
     (foldr update_duplicates_set {}) # fold to create the duplicates set
+  ];
+
+  /* Function to find duplicate mappings in a list of attrsets
+   *
+   *   find_duplicate_mappings [ { "foo" = 1; "bar" = 2; } { "foo" = 3; } ]
+   *     -> { "foo" = [ 1 3 ] }
+   */
+  find_duplicate_mappings = let
+    # For every element seen, we add an entry to the set
+    update_duplicates_set = el: set: set // { ${toString el} = true; };
+  in compose [
+    (filterAttrs (_: v: length v >= 2))  # filter on users having 2 or more profiles
+    (mapAttrs (_: attrNames))            # collect just the different profile names
+    (foldAttrs update_duplicates_set {}) # collect the values for the different keys
   ];
 
   # recursiveUpdate merges the two resulting attribute sets recursively
@@ -241,7 +259,9 @@ let
   };
 in {
   config.lib.ext_lib = {
-    inherit compose applyTwice filterEnabled find_duplicates recursiveMerge
+    inherit compose applyTwice filterEnabled concatMapAttrsToList
+            find_duplicates find_duplicate_mappings
+            recursiveMerge
             stringNotEmpty ifPathExists traceImportJSON
             host_name_type empty_str_type pub_key_type
             indentStr mkSudoStartServiceCmds

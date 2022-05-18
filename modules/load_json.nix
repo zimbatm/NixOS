@@ -60,7 +60,7 @@ in
         assertion = length duplicates == 0;
         message   = "Duplicate entries found in the tunnel definitions. " +
                     "Duplicates: " +
-                    concatStringsSep ", " duplicates;
+                    generators.toPretty {} duplicates;
       }
     ];
 
@@ -77,19 +77,30 @@ in
 
         pathToString = concatStringsSep ".";
 
-        onRoleAbsent = path: abort ''
-          The role "${pathToString path}" which was enabled for host "${hostName}" is not defined.'';
+        onRoleAbsent = path: let
+          formatRoles = ext_lib.compose [
+            (map (r: pathToString (rolePath ++ [r])))
+            attrNames
+            (attrByPath rolePath {})
+          ];
+        in abort (''The role "${pathToString path}" which was '' +
+                  ''enabled for host "${hostName}", is not defined. '' +
+                  "Available roles: " +
+                  generators.toPretty {} (formatRoles users_json_data));
 
-        onCycle = entriesSeen: abort ''
-          Cycle detected while resolving roles: ${concatMapStringsSep " -> " pathToString entriesSeen}'';
+        onCycle = entriesSeen: abort ("Cycle detected while resolving roles: " +
+                                      generators.toPretty {} (map pathToString entriesSeen));
 
-        onProfileNotFound = p: abort ''
-          Permissions profile '${p}' not found in file '${toString users_json_path}', available profiles:
-            ${concatStringsSep ", " (attrNames permissionProfiles)}'';
+        onProfileNotFound = p: abort (''Permission profile "${p}", mentioned in '' +
+                                      ''file "${toString users_json_path}", '' +
+                                      "could not be found. " +
+                                      "Available profiles: \n" +
+                                      generators.toPretty {} (attrNames permissionProfiles));
 
-        # Given an attrset linking users to their permission profile,
+        # Given an attrset mapping users to their permission profile,
         # resolve the permission profiles and activate the users
-        # to obtain an attrset of activated users with the requested permissions
+        # to obtain an attrset of activated users with the requested permissions.
+        # This function return the attrset to be included in the final config.
         activateUsers = let
           enableProfile = p: p // { enable = true; };
           retrieveProfile = p: if hasAttr p permissionProfiles
@@ -97,41 +108,77 @@ in
                                else onProfileNotFound p;
         in mapAttrs (_: retrieveProfile);
 
-        # Activate an 'entry' which is either the top-level definition for a host,
-        # or a role. For every such entry we activate the users given in the
+        # Resolve an 'entry' which is either the top-level definition for a host,
+        # or a role. For every such entry we resolve the users given in the
         # 'enable' property and we recurse into the roles given in the
         # 'enable_roles' property.
+        # The result is a mapping of every user to its permissions profile.
         #
         # We maintain a list of the visited entries to be able to detect and report
         # any cycles during role resolution.
         # This structure cannot be an attribute set (which would be more efficient)
-        # since attribute sets do not preserve insertion order.
-        activateEntry = onEntryAbsent: entriesSeen: path: entry: let
+        # since attribute sets do not preserve insertion order and if there is a cycle,
+        # we want to be able to print it as part of the error message.
+        resolveEntry = onEntryAbsent: entriesSeen: path: entry: let
           entryPath = path ++ [ entry ];
           entriesSeen' = entriesSeen ++ [ entryPath ];
           entryData = attrByPath entryPath (onEntryAbsent entryPath) users_json_data;
-          direct = activateUsers (attrByPath [ "enable" ] {} entryData);
-          # Note: we pass onRoleAbsent instead of onEntryAbsent in the line below
-          #       this ensures that an error is thrown if we encounter a
-          #       non-existing role
-          nested = activateEntries onRoleAbsent entriesSeen' rolePath
-                                   (attrByPath [ "enable_roles" ] [] entryData);
+
+          direct = attrByPath [ "enable" ] {} entryData;
+
+          # We pass onRoleAbsent instead of onEntryAbsent in the recursive calls below,
+          # this ensures that an error is thrown if we encounter a non-existing role.
+          nested = resolveEntries onRoleAbsent entriesSeen' rolePath
+                                  (attrByPath [ "enable_roles" ] [] entryData);
+
+          # The property "enable_roles_with_profile" allows to enable a role but
+          # to set the permission profile of all members of the role to a fixed
+          # value.
+          # We do mostly the same as for "enable_roles" above,
+          # but before returning the result we replace the permission profile.
+          nested_with_profile =
+            resolveEntriesWithProfiles onRoleAbsent entriesSeen' rolePath
+                                       (attrByPath [ "enable_roles_with_profile" ]
+                                                   {} entryData);
+
         in if (elem entryPath entriesSeen)
            then onCycle entriesSeen'
-           else recursiveUpdate direct nested;
+           else [ direct ] ++ nested ++ nested_with_profile;
 
-        activateEntries = onEntryAbsent: entriesSeen: path: ext_lib.compose [
-          # Merge all the results together
-          ext_lib.recursiveMerge
-          # Activate every entry with the given parameters
-          (map (activateEntry onEntryAbsent entriesSeen path))
-        ];
+        resolveEntries = onEntryAbsent: entriesSeen: path:
+          concatMap (resolveEntry onEntryAbsent entriesSeen path);
 
-        enabledUsers = let
+        resolveEntriesWithProfiles = onEntryAbsent: entriesSeen: path: let
+          doResolve = resolveEntry onRoleAbsent entriesSeen rolePath;
+          replaceProfilesWith = profile: map (mapAttrs (_: _: profile));
+          resolveWithProfile  = role: profile: replaceProfilesWith profile
+                                                                   (doResolve role);
+        in ext_lib.concatMapAttrsToList resolveWithProfile;
+
+        ensure_no_duplicates = attrsets: let
+          duplicates = ext_lib.find_duplicate_mappings attrsets;
+          msg = "Duplicate permission profiles found for users: " +
+                  generators.toPretty {} duplicates;
+        in if length (attrNames duplicates) == 0
+           then attrsets
+           else abort msg;
+
+        enabledUsersForHost = host: let
           # We do not abort if a host is not found,
           # in that case we simply do not activate any user for that host.
           onHostAbsent = const {};
-        in activateEntry onHostAbsent [] hostPath hostName;
+          enabledUsers = ext_lib.compose [
+            activateUsers          # Activate all users
+            ext_lib.recursiveMerge # Merge everything together
+            ensure_no_duplicates   # Detect any users with multiple permissions
+            (resolveEntry onHostAbsent [] hostPath) # resolve the entry for the current server
+          ];
+        in enabledUsers host;
+
+        enabledUsers = enabledUsersForHost hostName;
+
+      # Take all enabled users and merge them with
+      # the attrset defining their public keys.
       in recursiveUpdate keys_json_data.keys enabledUsers;
 
       reverse_tunnel.tunnels = let
