@@ -32,10 +32,6 @@ in {
         };
       });
     };
-    # Unused option to redirect the assignment of an option. See below.
-    blackHole = mkOption {
-      type = types.anything;
-    };
   };
 
   config = let
@@ -57,11 +53,10 @@ in {
     #   `mkIf cond { foo = bar; };` becomes `{ foo = mkIf cond bar; };`,
     # we cannot simply put mkIf on this set to make the assignment to the
     # rebootWindow conditional.
-    # So instead we detect the version and redirect the assignment to a blackHole
-    # option if it is not needed (basically rendering this part into a no-op).
     {
-      system.autoUpgrade.${if isCompat then "blackHole" else "rebootWindow"} =
-        cfg.rebootWindow_compat;
+      system.autoUpgrade = optionalAttrs (!isCompat) {
+        rebootWindow = cfg.rebootWindow_compat;
+      };
     }
     # Define this service only for NixOS < 22.05.
     # For later versions, it is defined upstream already.
