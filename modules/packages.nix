@@ -21,7 +21,7 @@ with lib;
     coreutils
     gptfdisk
     file
-    nfsUtils
+    nfs-utils
     cifs-utils
     htop
     iotop

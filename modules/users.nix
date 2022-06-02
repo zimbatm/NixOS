@@ -185,7 +185,7 @@ in {
                          (optional user.canTunnel cfg.fwd-tunnel-group) ++
                          (optional user.hasShell  cfg.shell-user-group) ++
                          (optional user.hasShell  "users");
-          shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.nologin;
+          shell        = if (hasShell user) then config.users.defaultUserShell else pkgs.shadow;
           openssh.authorizedKeys.keys = public_keys_for user;
         };
 

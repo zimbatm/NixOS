@@ -322,7 +322,7 @@ in
           # The key to connect to the relays will be copied to /run/tunnel
           home         = cfg.private_key_directory;
           createHome   = true;
-          shell        = pkgs.nologin;
+          shell        = pkgs.shadow;
         };
       };
       groups = {

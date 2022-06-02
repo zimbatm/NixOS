@@ -222,7 +222,7 @@ in {
           group        = tunneller;
           isNormalUser = false;
           isSystemUser = true;
-          shell        = pkgs.nologin;
+          shell        = pkgs.shadow;
           # The fwd-tunnel-group is required to be able to proxy through the relay
           extraGroups  = [ config.settings.users.ssh-group
                            config.settings.users.fwd-tunnel-group ];

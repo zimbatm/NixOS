@@ -86,7 +86,7 @@ in
         group        = nfs;
         isNormalUser = false;
         isSystemUser = true;
-        shell        = pkgs.nologin;
+        shell        = pkgs.shadow;
       };
 
       groups.${nfs} = {};

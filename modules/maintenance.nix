@@ -93,7 +93,7 @@ in {
     system.autoUpgrade = {
       enable       = cfg.nixos_upgrade.enable;
       allowReboot  = true;
-      rebootWindow = { lower = "01:00"; upper = "05:00"; };
+      rebootWindow_compat = { lower = "01:00"; upper = "05:00"; };
       # We override this below, since this option does not accept
       # a list of multiple timings.
       dates        = "";
@@ -204,13 +204,13 @@ in {
 
           booted="$(${readlink} /run/booted-system/{initrd,kernel,kernel-modules})"
           built="$(${readlink} /nix/var/nix/profiles/system/{initrd,kernel,kernel-modules})"
-          ${optionalString (upgrade_cfg.rebootWindow != null) ''current_time="$(${date} +%H:%M)"''}
+          ${optionalString (upgrade_cfg.rebootWindow_compat != null) ''current_time="$(${date} +%H:%M)"''}
 
           if [ "$booted" = "$built" ]; then
             ${nixos-rebuild} switch
-          ${optionalString (upgrade_cfg.rebootWindow != null) ''
-            elif [[ "''${current_time}" < "${upgrade_cfg.rebootWindow.lower}" ]] || \
-                 [[ "''${current_time}" > "${upgrade_cfg.rebootWindow.upper}" ]]; then
+          ${optionalString (upgrade_cfg.rebootWindow_compat != null) ''
+            elif [[ "''${current_time}" < "${upgrade_cfg.rebootWindow_compat.lower}" ]] || \
+                 [[ "''${current_time}" > "${upgrade_cfg.rebootWindow_compat.upper}" ]]; then
               echo "Outside of configured reboot window, skipping."
           ''}
           else

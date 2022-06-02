@@ -25,7 +25,7 @@ with lib;
     environment = {
       systemPackages = with pkgs; [
         git
-        docker_compose
+        docker-compose
       ];
 
       # For containers running java, allows to bind mount /etc/timezone

@@ -65,6 +65,9 @@ in
         forwardX11 = false;
         passwordAuthentication = false;
         challengeResponseAuthentication = false;
+        #TODO: replace previous line by the following once all systems
+        #      have been upgraded to NixOS 22.05
+        #kbdInteractiveAuthentication = false;
         allowSFTP = true;
         ports = let
           host_name   = config.networking.hostName;
