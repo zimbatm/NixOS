@@ -15,9 +15,10 @@ let
       checkInputs = [ mypy ];
       propagatedBuildInputs = [ ansible pynacl pyyaml requests ];
 
+      # TODO: re-add --warn-unused-ignores
+      # when all servers have compatible Python versions again
       checkPhase = ''
         mypy --warn-redundant-casts \
-             --warn-unused-ignores \
              --warn-no-return \
              --warn-return-any \
              --warn-unreachable \

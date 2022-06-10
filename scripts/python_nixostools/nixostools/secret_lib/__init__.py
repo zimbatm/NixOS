@@ -1,6 +1,6 @@
 
 import json
-import yaml
+import yaml # type: ignore
 
 from base64      import b64decode
 from textwrap    import wrap

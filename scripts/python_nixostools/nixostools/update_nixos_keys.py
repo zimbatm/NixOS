@@ -4,7 +4,7 @@
 import argparse
 import json
 import os
-import requests
+import requests # type: ignore
 
 from itertools import chain
 from typing    import Iterable, Mapping

@@ -8,7 +8,7 @@ import glob
 import json
 import os
 import traceback
-import yaml
+import yaml # type: ignore
 
 from base64      import b64decode
 from dataclasses import dataclass
