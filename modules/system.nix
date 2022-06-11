@@ -9,6 +9,8 @@ let
   tnl_cfg    = config.settings.reverse_tunnel;
   crypto_cfg = config.settings.crypto;
   docker_cfg = config.settings.docker;
+
+  tmux_term  = "tmux-256color";
 in
 
 {
@@ -290,7 +292,7 @@ in
     environment = {
       # See https://nixos.org/nix/manual/#ssec-values for documentation on escaping ${
       shellInit = ''
-        if [ "''${TERM}" != "screen" ] || [ -z "''${TMUX}" ]; then
+        if [ "''${TERM}" != "${tmux_term}" ] || [ -z "''${TMUX}" ]; then
           alias nixos-rebuild='printf "Please run nixos-rebuild only from within a tmux session." 2> /dev/null'
         fi
       '';
@@ -596,8 +598,13 @@ in
         newSession = true;
         clock24 = true;
         historyLimit = 10000;
+        escapeTime = 250;
+        terminal = tmux_term;
         extraConfig = ''
           set -g mouse on
+          set-option -g focus-events on
+          set-option -g default-terminal "${tmux_term}"
+          set-option -sa terminal-overrides ',xterm:RGB'
         '';
       };
     };
