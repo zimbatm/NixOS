@@ -8,12 +8,12 @@ let
   version = "0.1";
   src     = builtins.path { path = ./.; name = pname; };
 
-  package = { buildPythonApplication, ansible, mypy, pynacl, pyyaml, requests }:
+  package = { buildPythonApplication, ansible-core, mypy, pynacl, pyyaml, requests }:
     buildPythonApplication {
       inherit pname version src doCheck;
 
       checkInputs = [ mypy ];
-      propagatedBuildInputs = [ ansible pynacl pyyaml requests ];
+      propagatedBuildInputs = [ ansible-core pynacl pyyaml requests ];
 
       # TODO: re-add --warn-unused-ignores
       # when all servers have compatible Python versions again

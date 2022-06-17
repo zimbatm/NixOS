@@ -7,10 +7,6 @@ let
 in
 
 {
-  # We backport Nomad 1.0 from the nixpkgs master repo
-  # until it becomes available in the 21.05 release.
-  imports = [ ./nomad/nomad.nix ];
-
   options.settings.services.nomad = {
     enable = mkEnableOption "the Nomad service";
 
@@ -24,7 +20,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    services.nomad.backported = {
+    services.nomad = {
       enable = cfg.enable;
       settings = {
         datacenter = cfg.datacenter;
