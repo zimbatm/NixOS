@@ -54,7 +54,12 @@ in {
   system.extraDependencies = mkOverride 10 [];
 
   isoImage = {
-    isoName = mkForce "${config.isoImage.isoBaseName}-${sys_cfg.org.iso.file_label}-${config.system.nixos.label}-${pkgs.stdenv.hostPlatform.system}.iso";
+    isoName = mkForce (
+      (concatStringsSep "-" [ sys_cfg.org.iso.file_label
+                              config.isoImage.isoBaseName
+                              config.system.nixos.label
+                              pkgs.stdenv.hostPlatform.system
+                            ]) + ".iso");
     appendToMenuLabel = " ${sys_cfg.org.iso.menu_label}";
   };
 }
