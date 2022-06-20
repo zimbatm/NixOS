@@ -23,6 +23,7 @@
     ./syno_vm.nix
     ./traefik.nix
     ./users.nix
+    ./vim-config.nix
     ./virtualbox.nix
     ./vmware.nix
     (if builtins.pathExists ../org-config

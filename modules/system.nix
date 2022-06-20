@@ -308,7 +308,6 @@ in
         HOSTNAME_HASH = let
           hash = builtins.hashString "sha256" config.networking.hostName;
         in substring 0 12 hash;
-        EDITOR = "vim";
         "${cfg.org.env_var_prefix}_SECRETS_DIRECTORY" = cfg.secrets.dest_directory;
       };
     };

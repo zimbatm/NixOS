@@ -17,7 +17,6 @@ with lib;
     keyutils
     wget
     curl
-    (import ./vim-config.nix)
     coreutils
     gptfdisk
     file
