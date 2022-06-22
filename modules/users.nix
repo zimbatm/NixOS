@@ -151,22 +151,22 @@ in {
       # !! These lines are very important !!
       # Without it, the ssh groups are not created
       # and no-one has SSH access to the system!
-      groups = {
-        ${cfg.ssh-group}        = { };
-        ${cfg.fwd-tunnel-group} = { };
-        ${cfg.rev-tunnel-group} = { };
-        ${cfg.shell-user-group} = { };
-      }
-      //
-      # Create the groups that are used for whitelisting sudo commands
-      ext_lib.compose [ (mapAttrs (_: _: {}))
-                        ext_lib.filterEnabled ]
-                      cfg.whitelistGroups
-      //
-      # Create a group per user
-      ext_lib.compose [ (mapAttrs' (_: u: nameValuePair u.name {}))
-                        ext_lib.filterEnabled ]
-                      cfg.users;
+      groups = ext_lib.recursiveMerge [
+        {
+          ${cfg.ssh-group}        = { };
+          ${cfg.fwd-tunnel-group} = { };
+          ${cfg.rev-tunnel-group} = { };
+          ${cfg.shell-user-group} = { };
+        }
+        # Create the groups that are used for whitelisting sudo commands
+        (ext_lib.compose [ (mapAttrs (_: _: {}))
+                           ext_lib.filterEnabled ]
+                         cfg.whitelistGroups)
+        # Create a group per user
+        (ext_lib.compose [ (mapAttrs' (_: u: nameValuePair u.name {}))
+                           ext_lib.filterEnabled ]
+                         cfg.users)
+      ];
 
       users = let
         isRelay = config.settings.reverse_tunnel.relay.enable;

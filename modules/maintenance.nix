@@ -186,12 +186,17 @@ in {
         restartIfChanged = false;
         unitConfig.X-StopOnRemoval = false;
 
-        environment = config.nix.envVars //
+        environment = ext_lib.recursiveMerge [
+          config.nix.envVars
           { inherit (config.environment.sessionVariables) NIX_PATH;
             HOME = "/root";
-          } // config.networking.proxy.envVars;
+          }
+          config.networking.proxy.envVars
+        ];
 
-        path = with pkgs; [ coreutils gnutar xz.bin gzip gitMinimal config.nix.package.out ];
+        path = with pkgs; [
+          coreutils gnutar xz.bin gzip gitMinimal config.nix.package.out
+        ];
 
         script = let
           upgrade_cfg = config.system.autoUpgrade;

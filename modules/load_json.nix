@@ -102,7 +102,7 @@ in
         # to obtain an attrset of activated users with the requested permissions.
         # This function return the attrset to be included in the final config.
         activateUsers = let
-          enableProfile = p: p // { enable = true; };
+          enableProfile = p: recursiveUpdate p { enable = true; };
           retrieveProfile = p: if hasAttr p permissionProfiles
                                then enableProfile permissionProfiles.${p}
                                else onProfileNotFound p;

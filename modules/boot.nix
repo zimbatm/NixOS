@@ -87,12 +87,12 @@ with lib;
         };
       in mkIf (mode != cfg.modes.none) (mkMerge [
         (mkIf (mode == cfg.modes.legacy) {
-          grub = grub_common // {
+          grub = recursiveUpdate grub_common {
             efiSupport = false;
           };
         })
         (mkIf (mode == cfg.modes.uefi) {
-          grub = grub_common // {
+          grub = recursiveUpdate grub_common {
             efiSupport = true;
             efiInstallAsRemovable = true;
             extraEntries = ''

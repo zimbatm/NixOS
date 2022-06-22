@@ -40,7 +40,7 @@ let
     */
     update_duplicates_set = el: set: let
       is_duplicate = el: hasAttr (toString el);
-    in set // { ${toString el} = is_duplicate el set; };
+    in recursiveUpdate set { ${toString el} = is_duplicate el set; };
   in compose [
     attrNames                        # return the name only
     (filterAttrs (flip const))       # filter on trueness of the value
@@ -54,7 +54,8 @@ let
    */
   find_duplicate_mappings = let
     # For every element seen, we add an entry to the set
-    update_duplicates_set = el: set: set // { ${toString el} = true; };
+    update_duplicates_set = el: set:
+      recursiveUpdate set { ${toString el} = true; };
   in compose [
     (filterAttrs (_: v: length v >= 2))  # filter on users having 2 or more profiles
     (mapAttrs (_: attrNames))            # collect just the different profile names

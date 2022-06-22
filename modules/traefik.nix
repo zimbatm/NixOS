@@ -264,12 +264,15 @@ in
                                          { inherit (cfg.acme.staging) caserver; };
           preferredChain = optionalAttrs cfg.acme.crossSignedChain.enable
                                          { inherit (cfg.acme.crossSignedChain) preferredChain; };
-          acme_template = {
-            email = cfg.acme.email_address;
-            storage = "${cfg.acme.storage}/acme.json";
-            keyType = cfg.acme.keytype;
-          } // caserver
-            // preferredChain;
+          acme_template = ext_lib.recursiveMerge [
+            {
+              email = cfg.acme.email_address;
+              storage = "${cfg.acme.storage}/acme.json";
+              keyType = cfg.acme.keytype;
+            }
+            caserver
+            preferredChain
+          ];
           accesslog = optionalAttrs cfg.accesslog.enable {
             accessLog = {
               # Make sure that the times are printed in local time
@@ -280,7 +283,7 @@ in
               };
             };
           };
-          static_config = {
+          static_config = recursiveUpdate {
             global.sendAnonymousUsage = true;
             pilot.token = cfg.pilot_token;
             ping = {};
@@ -301,7 +304,7 @@ in
               };
             };
 
-            entryPoints = {
+            entryPoints = recursiveUpdate {
               web = {
                 address = ":80";
                 http = {
@@ -323,26 +326,25 @@ in
                 address = ":${toString cfg.traefik_entrypoint_port}";
                 http.middlewares = [ "${dashboard-middleware}@file" ];
               };
-            } // generate_tls_entrypoints cfg.tls_entrypoints;
+            } (generate_tls_entrypoints cfg.tls_entrypoints);
 
             certificatesresolvers = {
               ${letsencrypt}.acme =
-                acme_template // {
+                recursiveUpdate acme_template {
                   httpChallenge.entryPoint = "web";
                 };
-              "${letsencrypt}_dns".acme =
-                acme_template // {
-                  dnsChallenge = {
-                    resolvers = [
-                      "9.9.9.9:53"
-                      "8.8.8.8:53"
-                      "1.1.1.1:53"
-                    ];
-                    provider = cfg.acme.dns_provider;
-                  };
+              "${letsencrypt}_dns".acme = recursiveUpdate acme_template {
+                dnsChallenge = {
+                  resolvers = [
+                    "9.9.9.9:53"
+                    "8.8.8.8:53"
+                    "1.1.1.1:53"
+                  ];
+                  provider = cfg.acme.dns_provider;
                 };
+              };
             };
-          } // accesslog;
+          } accesslog;
         in yaml_format.generate static_config_file_name static_config;
 
         dynamic_config_mounts = let

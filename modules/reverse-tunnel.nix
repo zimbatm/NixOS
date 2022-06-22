@@ -333,7 +333,7 @@ in {
         };
       };
     in
-      tunnel_services // monitoring_services;
+      recursiveUpdate tunnel_services monitoring_services;
   };
 }
 
