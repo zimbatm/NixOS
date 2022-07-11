@@ -213,27 +213,41 @@ let
       "${env_var_prefix}_DEPLOY_DIR" = deploy_dir;
     };
     script = let
-      docker_credentials_file = "${secrets_dir}/docker_private_repo_creds";
-    in ''
-      ${clone_and_reset_git { inherit config github_repo;
-                              clone_dir = deploy_dir;
-                              branch = git_branch; }}
+      docker_creds_prefix = "docker_private_repo_creds";
+      docker_creds_prefix_length = builtins.stringLength docker_creds_prefix;
 
-      # Login to our private docker repo (hosted on github)
-      if [ -f ${docker_credentials_file} ]; then
-        # Load private repo variables
-        source ${docker_credentials_file}
+      forEachDockerRepo = body: ''
+        for secret_file in $(ls "${secrets_dir}"); do
+          if [ "''${secret_file::${toString docker_creds_prefix_length}}" = \
+               "${docker_creds_prefix}" ]; then
+            source "${secrets_dir}/''${secret_file}"
+            ${body}
+          fi
+        done
+      '';
+
+      docker_login = forEachDockerRepo ''
+        echo "logging in to ''${DOCKER_PRIVATE_REPO_URL}..."
 
         echo ''${DOCKER_PRIVATE_REPO_PASS} | \
         ${pkgs.docker}/bin/docker login \
           --username "''${DOCKER_PRIVATE_REPO_USER}" \
           --password-stdin \
           "''${DOCKER_PRIVATE_REPO_URL}"
+      '';
 
-        docker_login_successful=true
-      else
-        echo "No docker credentials file found, skipping docker login."
-      fi
+      docker_logout = forEachDockerRepo ''
+        ${pkgs.docker}/bin/docker logout "''${DOCKER_PRIVATE_REPO_URL}"
+      '';
+
+    in ''
+      ${clone_and_reset_git { inherit config github_repo;
+                              clone_dir = deploy_dir;
+                              branch = git_branch; }}
+
+      echo "Log in to all defined docker repos..."
+      ${docker_login}
+
 
       if [ -x "${pre-compose_script_path}" ]; then
         "${pre-compose_script_path}"
@@ -252,9 +266,8 @@ let
           else ''up --detach --remove-orphans ${optionalString force_build "--build"}''
         }
 
-      if [ "''${docker_login_successful}" = true ]; then
-        ${pkgs.docker}/bin/docker logout "''${DOCKER_PRIVATE_REPO_URL}"
-      fi
+      echo "Log out of all docker repos..."
+      ${docker_logout}
     '';
   };
 in {
