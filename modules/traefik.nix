@@ -94,11 +94,6 @@ in
       };
     };
 
-    pilot_token = mkOption {
-      type = types.str;
-      default = "";
-    };
-
     traefik_entrypoint_port = mkOption {
       type = types.port;
       default = 8080;
