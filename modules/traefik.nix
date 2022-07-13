@@ -96,6 +96,7 @@ in
 
     pilot_token = mkOption {
       type = types.str;
+      default = "";
     };
 
     traefik_entrypoint_port = mkOption {
@@ -282,7 +283,6 @@ in
           };
           static_config = {
             global.sendAnonymousUsage = true;
-            pilot.token = cfg.pilot_token;
             ping = {};
             log.level = cfg.logging_level;
             api.dashboard = true;
