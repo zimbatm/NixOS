@@ -163,7 +163,7 @@ jobs:
           github.event_name == 'pull_request' &&
           inputs.push_secrets
         id: commit_push_step
-        uses: "EndBug/add-and-commit@v8"
+        uses: "EndBug/add-and-commit@v9"
         with:
           cwd: "org-config"
           add: "secrets/generated/*"
