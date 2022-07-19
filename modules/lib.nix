@@ -191,9 +191,10 @@ let
     /* We need to explicitly set the docker runtime dependency
        since docker-compose does not depend on docker.
        Nix is included so that nix-shell can be used in the external scripts
-       called dynamically by this function
+       called dynamically by this function.
+       Bash is included because several pre-compose scripts depend on it.
     */
-    path = with pkgs; [ nix docker ];
+    path = with pkgs; [ nix docker bash ];
 
     environment = let
       inherit (config.settings.system) github_private_key;
