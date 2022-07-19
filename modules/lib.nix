@@ -186,7 +186,10 @@ let
     pre-compose_script_path = "${deploy_dir}/${pre-compose_script}";
   in {
     inherit enable;
-    serviceConfig.Type = "oneshot";
+    serviceConfig = {
+      Type = "oneshot";
+      WorkingDirectory = deploy_dir;
+    };
 
     /* We need to explicitly set the docker runtime dependency
        since docker-compose does not depend on docker.
