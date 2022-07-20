@@ -158,7 +158,9 @@ in
     };
     withRuby    = false;
     withPython3 = false;
-    withNodeJs  = false;
+    # TODO: uncomment this again once all servers are at NixOS 21.05 or above
+    #       currently the default for this option is false anyway.
+    #withNodeJs  = false;
   };
 }
 
