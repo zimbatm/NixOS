@@ -146,7 +146,6 @@ in
       '';
       packages.nix = with pkgs.vimPlugins; {
         start = [
-          (nvim-treesitter.withPlugins (plugins: pkgs.tree-sitter.allGrammars))
           vim-nix
           vim-airline
           vim-airline-themes
