@@ -116,6 +116,16 @@ let
     (traceValFn (f: "Loading file ${toString f}..."))
   ];
 
+
+  # If the given option exists in the given path, then we return the option,
+  # otherwise we return null.
+  # This can be used to optionally set options:
+  #   config.foo.bar = {
+  #     ${keyIfExists config.foo.bar "baz"} = valueIfBazOptionExists;
+  #   };
+  keyIfExists = path: option:
+    if hasAttr option path then option else null;
+
   # Prepend a string with a given number of spaces
   # indentStr :: Int -> String -> String
   indentStr = n: str: let
@@ -281,6 +291,7 @@ in {
             find_duplicates find_duplicate_mappings
             recursiveMerge
             stringNotEmpty ifPathExists traceImportJSON
+            keyIfExists
             host_name_type empty_str_type pub_key_type
             indentStr mkSudoStartServiceCmds
             reset_git clone_and_reset_git mkDeploymentService;

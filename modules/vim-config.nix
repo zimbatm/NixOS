@@ -3,6 +3,7 @@
 with lib;
 
 let
+  inherit (config.lib) ext_lib;
   cfg = config.settings.vim;
 in
 
@@ -156,11 +157,9 @@ in
         opt = [];
       };
     };
-    withRuby    = false;
-    withPython3 = false;
-    # TODO: uncomment this again once all servers are at NixOS 21.05 or above
-    #       currently the default for this option is false anyway.
-    #withNodeJs  = false;
+    ${ext_lib.keyIfExists config.programs.neovim "withRuby"}    = false;
+    ${ext_lib.keyIfExists config.programs.neovim "withPython3"} = false;
+    ${ext_lib.keyIfExists config.programs.neovim "withNodeJs"}  = false;
   };
 }
 
