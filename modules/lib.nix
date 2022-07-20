@@ -254,6 +254,7 @@ let
 
 
       if [ -x "${pre-compose_script_path}" ]; then
+        echo "Running the pre-compose.sh script..."
         "${pre-compose_script_path}"
       else
         echo "Pre-compose script (${pre-compose_script_path}) does not exist or is not executable, skipping."
