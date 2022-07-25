@@ -74,9 +74,7 @@ in
           relay_ports = cfg_rev_tun.relay_servers.${host_name}.ports;
         in mkIf cfg_rev_tun.relay.enable relay_ports;
         kexAlgorithms = [ "sntrup761x25519-sha512@openssh.com"
-                          "curve25519-sha256@libssh.org"
-                          "diffie-hellman-group18-sha512"
-                          "diffie-hellman-group16-sha512" ];
+                          "curve25519-sha256@libssh.org" ];
         ciphers = [ "aes256-gcm@openssh.com"
                     "chacha20-poly1305@openssh.com" ];
         macs = [ "hmac-sha2-512-etm@openssh.com"
