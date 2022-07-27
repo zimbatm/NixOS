@@ -23,10 +23,7 @@ with lib;
   config = mkIf cfg.enable {
 
     environment = {
-      systemPackages = with pkgs; [
-        git
-        docker-compose
-      ];
+      systemPackages = [ pkgs.docker-compose ];
 
       # For containers running java, allows to bind mount /etc/timezone
       etc = mkIf (config.time.timeZone != null) {
@@ -40,11 +37,13 @@ with lib;
     };
 
     # Users in the docker group need access to secrets and /opt
-    settings.system.secrets.allow_groups = [ "docker" ];
-    settings.system.opt.allow_groups = [ "docker" ];
+    settings.system = {
+      secrets.allow_groups = [ "docker" ];
+      opt.allow_groups     = [ "docker" ];
+    };
 
     virtualisation.docker = {
-      enable       = true;
+      inherit (cfg) enable;
       enableOnBoot = true;
       liveRestore  = !cfg.swarm.enable;
       extraOptions = concatStringsSep " " (
@@ -74,7 +73,8 @@ with lib;
 
     systemd.services = {
       migrate_docker_data_dir = {
-        description   = "Migrate the Docker data dir to /opt/.docker";
+        inherit (cfg) enable;
+        description   = "Migrate the Docker data dir to ${cfg.data_dir}";
         before        = [ "docker.service" ];
         wantedBy      = [ "docker.service" ];
         serviceConfig = {
