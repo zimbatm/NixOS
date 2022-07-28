@@ -198,7 +198,7 @@ let
     inherit enable;
     serviceConfig = {
       Type = "oneshot";
-      WorkingDirectory = deploy_dir;
+      WorkingDirectory = "-${deploy_dir}";
     };
 
     /* We need to explicitly set the docker runtime dependency
@@ -258,6 +258,11 @@ let
       ${clone_and_reset_git { inherit config github_repo;
                               clone_dir = deploy_dir;
                               branch = git_branch; }}
+
+      # Change to the deploy dir in case it did not exist yet
+      # when the service started.
+      # The previous command should have created it in that case.
+      cd "${deploy_dir}"
 
       echo "Log in to all defined docker repos..."
       ${docker_login}
