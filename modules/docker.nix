@@ -70,28 +70,6 @@ with lib;
         ]
       );
     };
-
-    systemd.services = {
-      migrate_docker_data_dir = {
-        inherit (cfg) enable;
-        description   = "Migrate the Docker data dir to ${cfg.data_dir}";
-        before        = [ "docker.service" ];
-        wantedBy      = [ "docker.service" ];
-        serviceConfig = {
-          Type = "oneshot";
-        };
-        script = ''
-          if [ -d /opt/docker/ ]; then
-            mkdir --parents /opt/.docker/
-            mv /opt/docker/ ${cfg.data_dir}
-          # old, non-encrypted setups
-          elif [ -d /var/lib/docker/ ]; then
-            mkdir --parents /opt/.docker/
-            mv /var/lib/docker/ ${cfg.data_dir}
-          fi
-        '';
-      };
-    };
   };
 }
 
