@@ -538,8 +538,8 @@ in
               if [ -d "/opt/''${dir}" ] && \
                  [ ! "${containerd}" = "''${dir}" ] && \
                  [ ! "lost+found"    = "''${dir}" ]; then
-                ${pkgs.coreutils}/bin/chown root:root "/opt/''${dir}"
-                ${pkgs.coreutils}/bin/chmod u=rwX,o=  "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chown root:root      "/opt/''${dir}"
+                ${pkgs.coreutils}/bin/chmod u=rwX,g=rwX,o= "/opt/''${dir}"
                 ${pkgs.acl}/bin/setfacl \
                   --recursive \
                   --no-mask \
