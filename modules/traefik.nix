@@ -313,12 +313,15 @@ in
                   middlewares = [ "${default-ssl-middleware}@file" ];
                   tls.certResolver = letsencrypt;
                 };
+                http3 = {};
               };
               traefik = {
                 address = ":${toString cfg.traefik_entrypoint_port}";
                 http.middlewares = [ "${dashboard-middleware}@file" ];
               };
             } // generate_tls_entrypoints cfg.tls_entrypoints;
+
+            experimental.http3 = true;
 
             certificatesresolvers = {
               ${letsencrypt}.acme =
@@ -365,7 +368,8 @@ in
             mk_tls_ports = mapAttrsToList (_: mk_tls_port);
           in [
             "80:80"
-            "443:443"
+            "443:443/tcp"
+            "443:443/udp"
             "127.0.0.1:${traefik_entrypoint_port_str}:${traefik_entrypoint_port_str}"
             "[::1]:${traefik_entrypoint_port_str}:${traefik_entrypoint_port_str}"
           ] ++ mk_tls_ports cfg.tls_entrypoints;
