@@ -483,16 +483,27 @@ in
           };
           script = let
             containerd = "containerd";
+            # The X permission has no effect for default ACLs, it gets converted
+            # into a regular x.
+            # For all users except the file owner, the effective permissions are
+            # still subject to masking, and the default mask does not
+            # contain x for files.
+            # Therefore, in practice, only the file owner gains execute permissions
+            # on all files, and we do not need to worry too much.
+            # We could probably detect this situation and revoke the x permission
+            # from the ACLs on files, but this currently does not seem worth it,
+            # given the additional complexity that this would introduce in this
+            # script.
             acl = concatStringsSep "," (
                     [
                       "u::rwX"
                       "user:root:rwX"
-                      "d:u::rwX"
-                      "d:g::r-X"
+                      "d:u::rwx"
+                      "d:g::r-x"
                       "d:o::---"
-                      "d:user:root:rwX"
+                      "d:user:root:rwx"
                     ] ++
-                    concatMap (group: [ "group:${group}:rwX" "d:group:${group}:rwX"])
+                    concatMap (group: [ "group:${group}:rwX" "d:group:${group}:rwx"])
                               cfg.opt.allow_groups);
             # For /opt we use setfacl --set, so we need to define the full ACL
             opt_acl = concatStringsSep "," [ "g::r-X" "o::---" acl ];
