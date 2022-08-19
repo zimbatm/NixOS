@@ -266,6 +266,9 @@ in
       };
     in [ python_scripts_overlay ];
 
+    # Use the schedutil frequency scaling governor.
+    powerManagement.cpuFreqGovernor = "schedutil";
+
     zramSwap = {
       enable = true;
       algorithm = "zstd";
