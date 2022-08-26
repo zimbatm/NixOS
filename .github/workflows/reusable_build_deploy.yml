@@ -54,6 +54,10 @@ on:
           The deploy key used to commit the generated secrets back to the
           org repo, this one needs to be read-write if the push_secrets input
           is set to true.
+      NIXOS_REFORMAT_DEPLOY_KEY:
+        required: true
+        description: |-
+          The deploy key used for committing format changes back to the PR.
       NIXOS_OCB_KEY_MGMT_API_TOKEN:
         required: true
         description: |-
@@ -89,9 +93,6 @@ jobs:
 
   check_nix_formatting:
     runs-on: "ubuntu-latest"
-    env:
-      main_repo_name: "nixos"
-      config_repo_name: "nixos-ocb-config"
     strategy:
       fail-fast: false
       matrix:
@@ -116,6 +117,37 @@ jobs:
       - name: Run nixpkgs-fmt on the repos
         run: |
           nix-shell --packages nixpkgs-fmt --run "nixpkgs-fmt --check ."
+
+
+  correct_nix_formatting:
+    if: github.event_name == 'pull_request'
+    needs:
+      - check_nix_formatting
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout the repo
+        uses: "actions/checkout@v3"
+        with:
+          ssh-key: ${{ secrets.NIXOS_REFORMAT_DEPLOY_KEY }}
+
+      - name: Install the Nix package manager
+        uses: cachix/install-nix-action@master
+        with:
+          nix_path: "${{ inputs.nix_path }}"
+
+      - name: Run nixpkgs-fmt on the repos
+        run: |
+          nix-shell --packages nixpkgs-fmt --run "nixpkgs-fmt ."
+
+      - name: Commit the results back if needed
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          # commit exits with an error when there are no changes
+          # we will simply ignore this
+          git commit -m "Reformat code using nixpkgs-fmt." || true
+          git push
 
 
   # Since this is the first job to build the pythontools packages,

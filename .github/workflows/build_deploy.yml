@@ -27,6 +27,7 @@ jobs:
       NIXOS_OCB_CONFIG_DEPLOY_KEY: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
       # We never deploy secrets from this repo, so the read-only token is sufficient.
       NIXOS_OCB_SECRETS_COMMIT_DEPLOY_KEY: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+      NIXOS_REFORMAT_DEPLOY_KEY: ${{ secrets.NIXOS_REFORMAT_DEPLOY_KEY }}
       NIXOS_OCB_KEY_MGMT_API_TOKEN: ${{ secrets.NIXOS_OCB_KEY_MGMT_API_TOKEN }}
       NIXOS_ROBOT_KEY: ${{ secrets.NIXOS_ROBOT_KEY }}
       NIXOS_SECRET_MANAGEMENT_VAULT_KEY: ${{ secrets.NIXOS_SECRET_MANAGEMENT_VAULT_KEY }}
