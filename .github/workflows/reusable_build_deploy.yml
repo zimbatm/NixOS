@@ -92,20 +92,14 @@ jobs:
     env:
       main_repo_name: "nixos"
       config_repo_name: "nixos-ocb-config"
+    strategy:
+      matrix:
+        repo: [ "${{ inputs.main_repo }}", "${{ inputs.org_repo }}" ]
     steps:
       - name: Checkout the main repo
         uses: "actions/checkout@v3"
         with:
-          repository: "${{ inputs.main_repo }}"
-          path: "${{ env.main_repo_name }}"
-          persist-credentials: false
-
-      - name: Checkout the org repo
-        uses: "actions/checkout@v3"
-        with:
-          repository: "${{ inputs.org_repo }}"
-          path: "${{ env.config_repo_name }}"
-          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
+          repository: "${{ matrix.repo }}"
           persist-credentials: false
 
       - name: Install the Nix package manager
@@ -115,9 +109,7 @@ jobs:
 
       - name: Run nixpkgs-fmt on the repos
         run: |
-          for repo in "${main_repo_name}" "${config_repo_name}"; do
-            nix-shell --packages nixpkgs-fmt --run "nixpkgs-fmt --check ${repo}"
-          done
+          nix-shell --packages nixpkgs-fmt --run "nixpkgs-fmt --check ."
 
 
   # Since this is the first job to build the pythontools packages,
@@ -267,6 +259,7 @@ jobs:
     runs-on: "ubuntu-latest"
     needs:
       - encrypt_secrets
+      - check_nix_formatting
     # Only run this step if no new secrets were pushed,
     # otherwise the action will be retriggered anyway.
     if: needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped'
@@ -312,7 +305,9 @@ jobs:
 
   build_iso:
     runs-on: "ubuntu-latest"
-    needs: encrypt_secrets
+    needs:
+      - encrypt_secrets
+      - check_nix_formatting
     # Only run this step if new secrets were pushed,
     # otherwise the action will be retriggered anyway.
     if: needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped'
