@@ -8,7 +8,7 @@ with lib;
 
 {
   options.settings.packages.python_package = mkOption {
-    type    = types.package;
+    type = types.package;
     default = pkgs.python3;
   };
 

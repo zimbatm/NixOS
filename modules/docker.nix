@@ -9,7 +9,7 @@ with lib;
 {
   options = {
     settings.docker = {
-      enable       = mkEnableOption "the Docker service";
+      enable = mkEnableOption "the Docker service";
       swarm.enable = mkEnableOption "swarm mode";
 
       data_dir = mkOption {
@@ -39,13 +39,13 @@ with lib;
     # Users in the docker group need access to secrets and /opt
     settings.system = {
       secrets.allow_groups = [ "docker" ];
-      opt.allow_groups     = [ "docker" ];
+      opt.allow_groups = [ "docker" ];
     };
 
     virtualisation.docker = {
       inherit (cfg) enable;
       enableOnBoot = true;
-      liveRestore  = !cfg.swarm.enable;
+      liveRestore = !cfg.swarm.enable;
       extraOptions = concatStringsSep " " (
         # Docker internal IP addressing
         # Ranges used: 172.28.0.0/16, 172.29.0.0/16

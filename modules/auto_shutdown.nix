@@ -4,13 +4,14 @@ with lib;
 
 let
   cfg = config.settings.autoShutdown;
-in {
+in
+{
   options.settings.autoShutdown = {
     enable = mkEnableOption "the auto-shutdown service";
 
     startAt = mkOption {
-      type    = with types; either str (listOf str);
-      default = [];
+      type = with types; either str (listOf str);
+      default = [ ];
     };
   };
 

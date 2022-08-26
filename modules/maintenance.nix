@@ -5,7 +5,7 @@ with lib;
 let
   inherit (config.lib) ext_lib;
 
-  cfg     = config.settings.maintenance;
+  cfg = config.settings.maintenance;
   sys_cfg = config.settings.system;
 
   # Submodule to define repos.
@@ -25,7 +25,8 @@ let
       name = mkDefault name;
     };
   };
-in {
+in
+{
 
   # https://github.com/NixOS/nixpkgs/pull/77622
   imports = [ ./nixos-upgrade.nix ];
@@ -37,8 +38,8 @@ in {
     };
 
     sync_config.enable = mkOption {
-      type        = types.bool;
-      default     = true;
+      type = types.bool;
+      default = true;
       description = ''
         Whether to pull the config from the upstream branch before running the upgrade service.
       '';
@@ -91,12 +92,12 @@ in {
 
   config = mkIf cfg.enable {
     system.autoUpgrade = {
-      enable       = cfg.nixos_upgrade.enable;
-      allowReboot  = true;
+      enable = cfg.nixos_upgrade.enable;
+      allowReboot = true;
       rebootWindow_compat = { lower = "01:00"; upper = "05:00"; };
       # We override this below, since this option does not accept
       # a list of multiple timings.
-      dates        = "";
+      dates = "";
     };
 
     systemd.services = {
@@ -108,9 +109,9 @@ in {
       };
 
       nixos_sync_config = mkIf cfg.sync_config.enable {
-        description   = "Automatically sync the config with the upstream repository";
-        before        = [ "nixos-upgrade.service" ];
-        wantedBy      = [ "nixos-upgrade.service" ];
+        description = "Automatically sync the config with the upstream repository";
+        before = [ "nixos-upgrade.service" ];
+        wantedBy = [ "nixos-upgrade.service" ];
         serviceConfig = {
           Type = "oneshot";
         };
@@ -123,106 +124,113 @@ in {
             "-o StrictHostKeyChecking=yes"
           ];
         };
-        script = let
-          base_path = "/etc/nixos";
-          config_path = "${base_path}/${sys_cfg.org.config_dir_name}";
-          old_config_path = "${base_path}/ocb-config";
+        script =
+          let
+            base_path = "/etc/nixos";
+            config_path = "${base_path}/${sys_cfg.org.config_dir_name}";
+            old_config_path = "${base_path}/ocb-config";
 
-          hostname         = config.networking.hostName;
-          settings_path    = "/etc/nixos/settings.nix";
-          destination_path = "/etc/nixos/${sys_cfg.org.config_dir_name}/hosts/${hostname}.nix";
-        in ''
-          # Main repo
+            hostname = config.networking.hostName;
+            settings_path = "/etc/nixos/settings.nix";
+            destination_path = "/etc/nixos/${sys_cfg.org.config_dir_name}/hosts/${hostname}.nix";
+          in
+          ''
+            # Main repo
 
-          ${ext_lib.reset_git { inherit (cfg.config_repos.main) url branch;
-                                git_options = [ "-C" base_path ]; }}
+            ${ext_lib.reset_git { inherit (cfg.config_repos.main) url branch;
+                                  git_options = [ "-C" base_path ]; }}
 
-          # Organisation-specific repo
+            # Organisation-specific repo
 
-          if [ ! -d "${config_path}" ] && [ -d "${old_config_path}" ]; then
-            mv "${old_config_path}" "${config_path}"
-          fi
-
-          if [ ! -d "${config_path}" ] || [ ! -d "${config_path}/.git" ]; then
-            rm --recursive --force "${config_path}"
-            ${pkgs.git}/bin/git clone ${cfg.config_repos.org.url} "${config_path}"
-          fi
-
-          if [ -d "${old_config_path}" ]; then
-            rm --recursive --force "${old_config_path}"
-          fi
-
-          ${ext_lib.reset_git { inherit (cfg.config_repos.org) url branch;
-                                git_options = [ "-C" config_path ]; }}
-
-          # Settings link
-
-          function create_link() {
-            destination="''${1}"
-            if [ ! -f "${settings_path}" ] || \
-               [ "$(realpath ${settings_path})" != "''${destination}" ]; then
-              ln --force --symbolic "''${destination}" "${settings_path}"
+            if [ ! -d "${config_path}" ] && [ -d "${old_config_path}" ]; then
+              mv "${old_config_path}" "${config_path}"
             fi
-          }
 
-          if [ -f "${settings_path}" ] && [ ! -L "${settings_path}" ]; then
-            rm --force "${settings_path}"
-          fi
-          create_link "${destination_path}"
-        '';
+            if [ ! -d "${config_path}" ] || [ ! -d "${config_path}/.git" ]; then
+              rm --recursive --force "${config_path}"
+              ${pkgs.git}/bin/git clone ${cfg.config_repos.org.url} "${config_path}"
+            fi
+
+            if [ -d "${old_config_path}" ]; then
+              rm --recursive --force "${old_config_path}"
+            fi
+
+            ${ext_lib.reset_git { inherit (cfg.config_repos.org) url branch;
+                                  git_options = [ "-C" config_path ]; }}
+
+            # Settings link
+
+            function create_link() {
+              destination="''${1}"
+              if [ ! -f "${settings_path}" ] || \
+                 [ "$(realpath ${settings_path})" != "''${destination}" ]; then
+                ln --force --symbolic "''${destination}" "${settings_path}"
+              fi
+            }
+
+            if [ -f "${settings_path}" ] && [ ! -L "${settings_path}" ]; then
+              rm --force "${settings_path}"
+            fi
+            create_link "${destination_path}"
+          '';
       };
 
       nixos_rebuild_config = {
-        description   = "Rebuild the NixOS config without doing an upgrade";
+        description = "Rebuild the NixOS config without doing an upgrade";
         wants = optional cfg.sync_config.enable "nixos_sync_config.service";
         after = optional cfg.sync_config.enable "nixos_sync_config.service";
         serviceConfig = {
           Type = "oneshot";
         };
-        startAt = let
-          updateCfg = cfg.nixos_config_update.enable && !cfg.nixos_upgrade.enable;
-        in optionals updateCfg cfg.nixos_upgrade.startAt;
+        startAt =
+          let
+            updateCfg = cfg.nixos_config_update.enable && !cfg.nixos_upgrade.enable;
+          in
+          optionals updateCfg cfg.nixos_upgrade.startAt;
 
         restartIfChanged = false;
         unitConfig.X-StopOnRemoval = false;
 
         environment = config.nix.envVars //
-          { inherit (config.environment.sessionVariables) NIX_PATH;
+          {
+            inherit (config.environment.sessionVariables) NIX_PATH;
             HOME = "/root";
           } // config.networking.proxy.envVars;
 
         path = with pkgs; [ coreutils gnutar xz.bin gzip gitMinimal config.nix.package.out ];
 
-        script = let
-          upgrade_cfg = config.system.autoUpgrade;
-          nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
-          date     = "${pkgs.coreutils}/bin/date";
-          readlink = "${pkgs.coreutils}/bin/readlink";
-          shutdown = "${pkgs.systemd}/bin/shutdown";
-        in ''
-          ${nixos-rebuild} boot --no-build-output
+        script =
+          let
+            upgrade_cfg = config.system.autoUpgrade;
+            nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
+            date = "${pkgs.coreutils}/bin/date";
+            readlink = "${pkgs.coreutils}/bin/readlink";
+            shutdown = "${pkgs.systemd}/bin/shutdown";
+          in
+          ''
+            ${nixos-rebuild} boot --no-build-output
 
-          booted="$(${readlink} /run/booted-system/{initrd,kernel,kernel-modules})"
-          built="$(${readlink} /nix/var/nix/profiles/system/{initrd,kernel,kernel-modules})"
-          ${optionalString (upgrade_cfg.rebootWindow_compat != null) ''current_time="$(${date} +%H:%M)"''}
+            booted="$(${readlink} /run/booted-system/{initrd,kernel,kernel-modules})"
+            built="$(${readlink} /nix/var/nix/profiles/system/{initrd,kernel,kernel-modules})"
+            ${optionalString (upgrade_cfg.rebootWindow_compat != null) ''current_time="$(${date} +%H:%M)"''}
 
-          if [ "$booted" = "$built" ]; then
-            ${nixos-rebuild} switch
-          ${optionalString (upgrade_cfg.rebootWindow_compat != null) ''
-            elif [[ "''${current_time}" < "${upgrade_cfg.rebootWindow_compat.lower}" ]] || \
-                 [[ "''${current_time}" > "${upgrade_cfg.rebootWindow_compat.upper}" ]]; then
-              echo "Outside of configured reboot window, skipping."
-          ''}
-          else
-            ${shutdown} -r +1
-          fi
-        '';
+            if [ "$booted" = "$built" ]; then
+              ${nixos-rebuild} switch
+            ${optionalString (upgrade_cfg.rebootWindow_compat != null) ''
+              elif [[ "''${current_time}" < "${upgrade_cfg.rebootWindow_compat.lower}" ]] || \
+                   [[ "''${current_time}" > "${upgrade_cfg.rebootWindow_compat.upper}" ]]; then
+                echo "Outside of configured reboot window, skipping."
+            ''}
+            else
+              ${shutdown} -r +1
+            fi
+          '';
       };
 
       cleanup_auto_roots = {
-        description   = "Automatically clean up nix auto roots";
-        before        = [ "nix-gc.service" ];
-        wantedBy      = [ "nix-gc.service" ];
+        description = "Automatically clean up nix auto roots";
+        before = [ "nix-gc.service" ];
+        wantedBy = [ "nix-gc.service" ];
         serviceConfig = {
           Type = "oneshot";
         };
@@ -238,7 +246,7 @@ in {
 
       docker_prune_timer = mkIf cfg.docker_prune_timer.enable {
         inherit (cfg.docker_prune_timer) enable;
-        description   = "Automatically run docker system prune";
+        description = "Automatically run docker system prune";
         serviceConfig = {
           Type = "oneshot";
         };
@@ -253,8 +261,8 @@ in {
       autoOptimiseStore = true;
       gc = {
         automatic = true;
-        dates     = "Tue 03:00";
-        options   = "--delete-older-than 30d";
+        dates = "Tue 03:00";
+        options = "--delete-older-than 30d";
       };
     };
   };
