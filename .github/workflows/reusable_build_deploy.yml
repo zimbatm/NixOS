@@ -87,6 +87,39 @@ jobs:
           echo "push_robot_keys: ${{ inputs.push_robot_keys }}"
 
 
+  check_nix_formatting:
+    runs-on: "ubuntu-latest"
+    env:
+      main_repo_name: "nixos"
+      config_repo_name: "nixos-ocb-config"
+    steps:
+      - name: Checkout the main repo
+        uses: "actions/checkout@v3"
+        with:
+          repository: "${{ inputs.main_repo }}"
+          path: "${main_repo_name}"
+          persist-credentials: false
+
+      - name: Checkout the org repo
+        uses: "actions/checkout@v3"
+        with:
+          repository: "${{ inputs.org_repo }}"
+          path: "${config_repo_name}"
+          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
+          persist-credentials: false
+
+      - name: Install the Nix package manager
+        uses: cachix/install-nix-action@master
+        with:
+          nix_path: "${{ inputs.nix_path }}"
+
+      - name: Run nixpkgs-fmt on the repos
+        run: |
+          for repo in "${main_repo_name}" "${config_repo_name}"; do
+            nix-shell --packages nixpkgs-fmt --run "nixpkgs-fmt --check ${repo}"
+          done
+
+
   # Since this is the first job to build the pythontools packages,
   # we add an auth key to the cachix action to upload the package to cachix.
   # All other jobs needing the pythontools package should depend on this one.
