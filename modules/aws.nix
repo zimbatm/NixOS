@@ -19,7 +19,7 @@ with lib;
   services.timesyncd.servers = config.networking.timeServers;
 
   networking.dhcpcd = {
-    denyInterfaces  = mkForce [ "veth*" "docker*" ];
+    denyInterfaces = mkForce [ "veth*" "docker*" ];
     allowInterfaces = mkForce [ "en*" "eth*" ];
   };
 }

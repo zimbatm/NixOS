@@ -147,12 +147,12 @@ in
           indent-blankline-nvim
           nerdtree
         ];
-        opt = [];
+        opt = [ ];
       };
     };
-    ${ext_lib.keyIfExists config.programs.neovim "withRuby"}    = false;
+    ${ext_lib.keyIfExists config.programs.neovim "withRuby"} = false;
     ${ext_lib.keyIfExists config.programs.neovim "withPython3"} = false;
-    ${ext_lib.keyIfExists config.programs.neovim "withNodeJs"}  = false;
+    ${ext_lib.keyIfExists config.programs.neovim "withNodeJs"} = false;
   };
 }
 

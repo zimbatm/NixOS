@@ -27,8 +27,8 @@
     ./virtualbox.nix
     ./vmware.nix
     (if builtins.pathExists ../org-config
-     then ../org-config
-     else ../ocb-config)
+    then ../org-config
+    else ../ocb-config)
   ];
 }
 
