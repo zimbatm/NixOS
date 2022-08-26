@@ -123,7 +123,7 @@ jobs:
     # Only run this step if check_nix_formatting failed.
     if: >-
       failure() &&
-      steps.check_nix_formatting.conclusion == 'failure' &&
+      needs.check_nix_formatting.result == 'failure' &&
       github.event_name == 'pull_request'
     needs:
       - check_nix_formatting
