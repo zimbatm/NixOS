@@ -93,13 +93,22 @@ jobs:
       main_repo_name: "nixos"
       config_repo_name: "nixos-ocb-config"
     strategy:
+      failt-fast: false
       matrix:
-        repo: [ "${{ inputs.main_repo }}", "${{ inputs.org_repo }}" ]
+        include:
+          - repo: ${{ inputs.main_repo }}
+            token: ${{ github.token }}
+            ssh-key: null
+          - repo: ${{ inputs.org_repo }}
+            token: null
+            ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
     steps:
-      - name: Checkout the main repo
+      - name: Checkout the repo
         uses: "actions/checkout@v3"
         with:
           repository: "${{ matrix.repo }}"
+          token: ${{ matrix.token }}
+          ssh-key: ${{ matrix.ssh-key }}
           persist-credentials: false
 
       - name: Install the Nix package manager
