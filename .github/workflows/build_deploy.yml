@@ -19,7 +19,7 @@ on:
 jobs:
 
   shared:
-    uses: 'MSF-OCB/NixOS/.github/workflows/reusable_build_deploy.yml@master'
+    uses: 'MSF-OCB/NixOS/.github/workflows/reusable_build_deploy.yml@rvdp/add_format_check'
     with:
       push_secrets:    false
       push_robot_keys: false
