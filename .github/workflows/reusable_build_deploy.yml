@@ -97,14 +97,14 @@ jobs:
         uses: "actions/checkout@v3"
         with:
           repository: "${{ inputs.main_repo }}"
-          path: "${main_repo_name}"
+          path: "${{ env.main_repo_name }}"
           persist-credentials: false
 
       - name: Checkout the org repo
         uses: "actions/checkout@v3"
         with:
           repository: "${{ inputs.org_repo }}"
-          path: "${config_repo_name}"
+          path: "${{ env.config_repo_name }}"
           ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
           persist-credentials: false
 
