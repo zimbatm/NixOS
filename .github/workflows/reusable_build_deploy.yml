@@ -120,7 +120,11 @@ jobs:
 
 
   correct_nix_formatting:
-    if: github.event_name == 'pull_request'
+    # Only run this step if check_nix_formatting failed.
+    if: >-
+      failure() &&
+      steps.check_nix_formatting.conclusion == 'failure' &&
+      github.event_name == 'pull_request'
     needs:
       - check_nix_formatting
     runs-on: "ubuntu-latest"
