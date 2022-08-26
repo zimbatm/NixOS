@@ -129,9 +129,17 @@ jobs:
       - check_nix_formatting
     runs-on: "ubuntu-latest"
     steps:
-      - name: Checkout the repo
+      # By default, when running on a PR, the checkout action will checkout
+      # a detached HEAD. In order to be able to commit and push, we make sure
+      # that we checkout the actual PR branch when we are going to push the secrets.
+      - name: Checkout the repo (PR branch)
         uses: "actions/checkout@v3"
         with:
+          ref: "${{ github.event.pull_request.head.ref }}"
+          # Do not use the default GITHUB_TOKEN for authentication,
+          # See: https://docs.github.com/en/actions/reference/authentication-in-a-workflow#using-the-github_token-in-a-workflow
+          # This makes sure that the action gets retriggered after committing
+          # the generated secrets, which is required for the PR validation.
           ssh-key: ${{ secrets.NIXOS_REFORMAT_DEPLOY_KEY }}
 
       - name: Install the Nix package manager
