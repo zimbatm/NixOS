@@ -137,12 +137,6 @@ in
         " Move between buffers in normal mode
         nnoremap <C-PageDown>   :bprevious<CR>
         nnoremap <C-PageUp> :bnext<CR>
-
-        " Keep the cursor centered in normal mode
-        nnoremap <down> jzz
-        nnoremap <up>   kzz
-        nnoremap <PageUp>   <PageUp>zz
-        nnoremap <PageDown> <PageDown>zz
       '';
       packages.nix = with pkgs.vimPlugins; {
         start = [
