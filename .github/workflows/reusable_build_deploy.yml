@@ -98,17 +98,17 @@ jobs:
         include:
           - repo: ${{ inputs.main_repo }}
             token: ${{ github.token }}
-            ssh-key: null
+            ssh-key-secret-name: null
           - repo: ${{ inputs.org_repo }}
             token: null
-            ssh-key: ${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}
+            ssh-key-secret-name: "NIXOS_OCB_CONFIG_DEPLOY_KEY"
     steps:
       - name: Checkout the repo
         uses: "actions/checkout@v3"
         with:
           repository: "${{ matrix.repo }}"
           token: ${{ matrix.token }}
-          ssh-key: ${{ matrix.ssh-key }}
+          ssh-key: ${{ secrets[matrix.ssh-key-secret-name] }}
           persist-credentials: false
 
       - name: Install the Nix package manager
