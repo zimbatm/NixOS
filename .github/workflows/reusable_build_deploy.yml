@@ -93,7 +93,7 @@ jobs:
       main_repo_name: "nixos"
       config_repo_name: "nixos-ocb-config"
     strategy:
-      failt-fast: false
+      fail-fast: false
       matrix:
         include:
           - repo: ${{ inputs.main_repo }}
