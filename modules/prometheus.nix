@@ -4,7 +4,8 @@ with lib;
 
 let
   cfg = config.settings.services.prometheus;
-in {
+in
+{
 
   options.settings.services.prometheus = {
     enable = mkEnableOption "The Prometheus service";
@@ -12,10 +13,10 @@ in {
 
   config = mkIf cfg.enable {
     settings.users.users.prometheus = {
-      enable       = true;
-      sshAllowed   = true;
-      hasShell     = false;
-      canTunnel    = true;
+      enable = true;
+      sshAllowed = true;
+      hasShell = false;
+      canTunnel = true;
     };
 
     services.prometheus.exporters.node = {

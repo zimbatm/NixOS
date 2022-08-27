@@ -4,7 +4,8 @@ with lib;
 
 let
   sys_cfg = config.settings.system;
-in {
+in
+{
 
   imports = [
     "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix"
@@ -24,7 +25,7 @@ in {
       # We do not overwrite the ISO partitions
       partitions = {
         forcePartitions = mkForce false;
-        partitions = {};
+        partitions = { };
       };
       private_key_source = ../local/id_tunnel_iso;
       copy_private_key_to_store = true;
@@ -46,20 +47,22 @@ in {
 
   services.getty.helpLine = mkForce "";
 
-  documentation.enable       = mkOverride 10 false;
+  documentation.enable = mkOverride 10 false;
   documentation.nixos.enable = mkOverride 10 false;
 
   networking.wireless.enable = mkOverride 10 false;
 
-  system.extraDependencies = mkOverride 10 [];
+  system.extraDependencies = mkOverride 10 [ ];
 
   isoImage = {
     isoName = mkForce (
-      (concatStringsSep "-" [ sys_cfg.org.iso.file_label
-                              config.isoImage.isoBaseName
-                              config.system.nixos.label
-                              pkgs.stdenv.hostPlatform.system
-                            ]) + ".iso");
+      (concatStringsSep "-" [
+        sys_cfg.org.iso.file_label
+        config.isoImage.isoBaseName
+        config.system.nixos.label
+        pkgs.stdenv.hostPlatform.system
+      ]) + ".iso"
+    );
     appendToMenuLabel = " ${sys_cfg.org.iso.menu_label}";
   };
 }

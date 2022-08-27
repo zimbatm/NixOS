@@ -1,4 +1,4 @@
-{ config, lib, ...}:
+{ config, lib, ... }:
 
 let
   cfg = config.settings.boot;
@@ -16,20 +16,20 @@ with lib;
       };
 
       device = mkOption {
-        type    = types.str;
+        type = types.str;
         default = nodev;
         description = "The device to install GRUB to in legacy mode.";
       };
 
       separate_partition = mkOption {
-        type    = types.bool;
+        type = types.bool;
         default = true;
         description = "Whether /boot is a separate partition.";
       };
 
       modes = mkOption {
-        type     = with types; attrsOf str;
-        default  = { legacy = "legacy"; uefi = "uefi"; none = "none"; };
+        type = with types; attrsOf str;
+        default = { legacy = "legacy"; uefi = "uefi"; none = "none"; };
         readOnly = true;
       };
     };
@@ -40,7 +40,7 @@ with lib;
     assertions = [
       {
         assertion = (cfg.mode == cfg.modes.uefi) -> (cfg.device == nodev);
-        message   = ''
+        message = ''
           For UEFI installations, the boot device (settings.boot.device) should be set to "${nodev}", but I got "${cfg.device}" instead.
         '';
       }
@@ -58,56 +58,61 @@ with lib;
         what = "tmpfs";
         where = "/tmp";
         type = "tmpfs";
-        mountConfig.Options = let
-          options = [ "mode=1777"
-                      "strictatime"
-                      "rw"
-                      "nosuid"
-                      "nodev"
-                    ] ++
-                    optional (config.boot ? tmpOnTmpfsSize)
-                             "size=${toString config.boot.tmpOnTmpfsSize}";
-        in concatStringsSep "," options;
+        mountConfig.Options =
+          let
+            options = [
+              "mode=1777"
+              "strictatime"
+              "rw"
+              "nosuid"
+              "nodev"
+            ] ++
+            optional (config.boot ? tmpOnTmpfsSize)
+              "size=${toString config.boot.tmpOnTmpfsSize}";
+          in
+          concatStringsSep "," options;
       }
     ];
 
     boot = {
       growPartition = true;
-      cleanTmpDir   = true;
+      cleanTmpDir = true;
       # See above, TODO put back to true once the PR merged
-      tmpOnTmpfs    = false;
+      tmpOnTmpfs = false;
 
-      loader = let
-        inherit (cfg) mode;
-        grub_common = {
-          enable  = true;
-          version = 2;
-          inherit (cfg) device;
-          memtest86.enable = false;
-        };
-      in mkIf (mode != cfg.modes.none) (mkMerge [
-        (mkIf (mode == cfg.modes.legacy) {
-          grub = grub_common // {
-            efiSupport = false;
+      loader =
+        let
+          inherit (cfg) mode;
+          grub_common = {
+            enable = true;
+            version = 2;
+            inherit (cfg) device;
+            memtest86.enable = false;
           };
-        })
-        (mkIf (mode == cfg.modes.uefi) {
-          grub = grub_common // {
-            efiSupport = true;
-            efiInstallAsRemovable = true;
-            extraEntries = ''
-              menuentry 'Firmware Setup' --class settings {
-                fwsetup
-                clear
-                echo ""
-                echo "If you see this message, your EFI system doesn't support this feature."
-                echo ""
-              }
-            '';
-          };
-          efi.efiSysMountPoint = "/boot/efi";
-        })
-      ]);
+        in
+        mkIf (mode != cfg.modes.none) (mkMerge [
+          (mkIf (mode == cfg.modes.legacy) {
+            grub = grub_common // {
+              efiSupport = false;
+            };
+          })
+          (mkIf (mode == cfg.modes.uefi) {
+            grub = grub_common // {
+              efiSupport = true;
+              efiInstallAsRemovable = true;
+              extraEntries = ''
+                menuentry 'Firmware Setup' --class settings {
+                  fwsetup
+                  clear
+                  echo ""
+                  echo "If you see this message, your EFI system doesn't support this feature."
+                  echo ""
+                }
+              '';
+            };
+            efi.efiSysMountPoint = "/boot/efi";
+          })
+        ]);
 
       kernelParams = [
         # Overwrite free'd memory
