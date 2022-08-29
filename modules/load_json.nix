@@ -7,7 +7,6 @@ let
 in
 
 {
-
   options.settings.users.available_permission_profiles = mkOption {
     type = types.attrs;
     description = ''
@@ -24,13 +23,12 @@ in
 
       get_tunnel_contents =
         let
-
           /*
-        Note: if a json value is extracted multiple times, the warning only gets
-        printed once per file.
-        Since the value of the default expression does not depend on the input
-        argument to the function, Nix memoizes the result of the trace call and
-        the side-effect only occurs once.
+            Note: if a json value is extracted multiple times, the warning only gets
+            printed once per file.
+            Since the value of the default expression does not depend on the input
+            argument to the function, Nix memoizes the result of the trace call and
+            the side-effect only occurs once.
           */
           get_tunnels_set =
             let
@@ -47,7 +45,6 @@ in
             builtins.readDir
           ]
             dir;
-
         in
         ext_lib.compose [
           (map get_tunnels_set)
@@ -57,7 +54,6 @@ in
       tunnel_json = get_tunnel_contents sys_cfg.tunnels_json_dir_path;
     in
     {
-
       assertions =
         let
           mkDuplicates = ext_lib.compose [
@@ -70,8 +66,7 @@ in
           {
             assertion = length duplicates == 0;
             message = "Duplicate entries found in the tunnel definitions. " +
-              "Duplicates: " +
-              generators.toPretty { } duplicates;
+              "Duplicates: " + generators.toPretty { } duplicates;
           }
         ];
 
@@ -95,19 +90,25 @@ in
                   (attrByPath rolePath { })
                 ];
               in
-              abort (''The role "${pathToString path}" which was '' +
+              abort (
+                ''The role "${pathToString path}" which was '' +
                 ''enabled for host "${hostName}", is not defined. '' +
                 "Available roles: " +
-                generators.toPretty { } (formatRoles users_json_data));
+                generators.toPretty { } (formatRoles users_json_data)
+              );
 
-            onCycle = entriesSeen: abort ("Cycle detected while resolving roles: " +
-              generators.toPretty { } (map pathToString entriesSeen));
+            onCycle = entriesSeen: abort (
+              "Cycle detected while resolving roles: " +
+              generators.toPretty { } (map pathToString entriesSeen)
+            );
 
-            onProfileNotFound = p: abort (''Permission profile "${p}", mentioned in '' +
+            onProfileNotFound = p: abort (
+              ''Permission profile "${p}", mentioned in '' +
               ''file "${toString users_json_path}", '' +
               "could not be found. " +
               "Available profiles: \n" +
-              generators.toPretty { } (attrNames permissionProfiles));
+              generators.toPretty { } (attrNames permissionProfiles)
+            );
 
             # Given an attrset mapping users to their permission profile,
             # resolve the permission profiles and activate the users
@@ -154,9 +155,7 @@ in
                 # but before returning the result we replace the permission profile.
                 nested_with_profile =
                   resolveEntriesWithProfiles onRoleAbsent entriesSeen' rolePath
-                    (attrByPath [ "enable_roles_with_profile" ]
-                      { }
-                      entryData);
+                    (attrByPath [ "enable_roles_with_profile" ] { } entryData);
 
               in
               if (elem entryPath entriesSeen)
@@ -192,10 +191,14 @@ in
                 onHostAbsent = const { };
               in
               ext_lib.compose [
-                activateUsers # Activate all users
-                ext_lib.recursiveMerge # Merge everything together
-                ensure_no_duplicates # Detect any users with multiple permissions
-                (resolveEntry onHostAbsent [ ] hostPath) # resolve the entry for the current server
+                # Activate all users
+                activateUsers
+                # Merge everything together
+                ext_lib.recursiveMerge
+                # Detect any users with multiple permissions
+                ensure_no_duplicates
+                # resolve the entry for the current server
+                (resolveEntry onHostAbsent [ ] hostPath)
               ];
 
             enabledUsers = enabledUsersForHost hostName;
@@ -210,17 +213,15 @@ in
             # We add the SSH tunnel by default
             addSshTunnel = tunnel:
               let
-                ssh_tunnel = {
-                  reverse_tunnels = {
-                    ssh = {
-                      prefix = 0;
-                      forwarded_port = 22;
-                    };
-                  };
+                ssh_tunnel.reverse_tunnels.ssh = {
+                  prefix = 0;
+                  forwarded_port = 22;
                 };
               in
               recursiveUpdate tunnel ssh_tunnel;
+
             addSshTunnels = mapAttrs (_: addSshTunnel);
+
             load_tunnel_files = ext_lib.compose [
               addSshTunnels
               # We check in an assertion above that the two attrsets have an
