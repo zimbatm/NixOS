@@ -91,7 +91,7 @@ in
                 ];
               in
               abort (
-                ''The role "${pathToString path}" which was '' +
+                ''The role "${path}" which was '' +
                 ''enabled for host "${hostName}", is not defined. '' +
                 "Available roles: " +
                 generators.toPretty { } (formatRoles users_json_data)
@@ -99,7 +99,7 @@ in
 
             onCycle = entriesSeen: abort (
               "Cycle detected while resolving roles: " +
-              generators.toPretty { } (map pathToString entriesSeen)
+              generators.toPretty { } entriesSeen
             );
 
             onProfileNotFound = p: abort (
@@ -124,22 +124,50 @@ in
               in
               mapAttrs (_: retrieveProfile);
 
-            # Resolve an 'entry' which is either the top-level definition for a host,
-            # or a role. For every such entry we resolve the users given in the
-            # 'enable' property and we recurse into the roles given in the
-            # 'enable_roles' property.
-            # The result is a mapping of every user to its permissions profile.
+            # An 'entry' is either the top-level definition for a host in the
+            # JSON file, or a role that has been enabled for that host and
+            # therefore needs to be resolved.
+            # If a host has roles enabled, we will recursively resolve each of
+            # these roles and merge the results together.
             #
-            # We maintain a list of the visited entries to be able to detect and report
-            # any cycles during role resolution.
-            # This structure cannot be an attribute set (which would be more efficient)
-            # since attribute sets do not preserve insertion order and if there is a cycle,
-            # we want to be able to print it as part of the error message.
+            # During role resolution, we maintain a set of the visited entries
+            # to be able to detect and report any cycles during role resolution.
+            # We also maintain a list of the visited entries since attribute sets
+            # do not preserve insertion order and if there is a cycle, we want
+            # to be able to print the cycle as part of the error message.
+
+            # Initial empty set of entries to use for the top-level call.
+            initEntriesSet = {
+              # A set of entries that we have seen, allowing for efficient lookups.
+              entriesSeenSet = { };
+              # A list of entries that we have seen which keeps the order in
+              # which we saw them, so that we can print them later in order.
+              entriesSeenList = [ ];
+            };
+
+            # Add a new entry to the set, updating both the internal set and list.
+            addEntryToSet = entryPathStr: { entriesSeenSet, entriesSeenList }:
+              {
+                entriesSeenSet =
+                  entriesSeenSet // { ${entryPathStr} = true; };
+                entriesSeenList =
+                  entriesSeenList ++ [ entryPathStr ];
+              };
+
+            # Resolve an entry.
+            # We resolve the users given in the 'enable' property and
+            # we recurse into the roles given in the 'enable_roles' property.
+            # The result is a mapping of every user to its permissions profile.
             resolveEntry = onEntryAbsent: entriesSeen: path: entry:
               let
                 entryPath = path ++ [ entry ];
-                entriesSeen' = entriesSeen ++ [ entryPath ];
-                entryData = attrByPath entryPath (onEntryAbsent entryPath) users_json_data;
+                entryPathStr = pathToString entryPath;
+                entriesSeen' = addEntryToSet entryPathStr entriesSeen;
+                entryData =
+                  attrByPath
+                    entryPath
+                    (onEntryAbsent entryPathStr)
+                    users_json_data;
 
                 direct = attrByPath [ "enable" ] { } entryData;
 
@@ -156,21 +184,26 @@ in
                 nested_with_profile =
                   resolveEntriesWithProfiles onRoleAbsent entriesSeen' rolePath
                     (attrByPath [ "enable_roles_with_profile" ] { } entryData);
-
               in
-              if (elem entryPath entriesSeen)
-              then onCycle entriesSeen'
+              if hasAttr entryPathStr entriesSeen.entriesSeenSet
+              then onCycle entriesSeen'.entriesSeenList
               else [ direct ] ++ nested ++ nested_with_profile;
 
             resolveEntries = onEntryAbsent: entriesSeen: path:
               concatMap (resolveEntry onEntryAbsent entriesSeen path);
 
+            # Resolve the given roles, after resolution we set the profile of
+            # the resolved entries to a fixed specified one.
             resolveEntriesWithProfiles = onEntryAbsent: entriesSeen: path:
               let
-                doResolve = resolveEntry onRoleAbsent entriesSeen rolePath;
+                doResolve = resolveEntry onRoleAbsent entriesSeen path;
+                # Replace the profiles in the resolved role with the one
+                # that was specified.
                 replaceProfilesWith = profile: map (mapAttrs (_: _: profile));
-                resolveWithProfile = role: profile: replaceProfilesWith profile
-                  (doResolve role);
+                # Resolve the given role and set the profiles in the result to
+                # the given fixed profile.
+                resolveWithProfile = role: profile:
+                  replaceProfilesWith profile (doResolve role);
               in
               ext_lib.concatMapAttrsToList resolveWithProfile;
 
@@ -198,14 +231,12 @@ in
                 # Detect any users with multiple permissions
                 ensure_no_duplicates
                 # resolve the entry for the current server
-                (resolveEntry onHostAbsent [ ] hostPath)
+                (resolveEntry onHostAbsent initEntriesSet hostPath)
               ];
 
             enabledUsers = enabledUsersForHost hostName;
-
-            # Take all enabled users and merge them with
-            # the attrset defining their public keys.
           in
+          # Take all enabled users and merge them with their public keys.
           recursiveUpdate keys_json_data.keys enabledUsers;
 
         reverse_tunnel.tunnels =
