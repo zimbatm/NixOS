@@ -64,14 +64,6 @@ def init_tree(nixos_config_dir: str, build_dir: str) -> None:
     pass
 
 
-def prepare_tree(build_dir: str, config_name: str) -> None:
-  settings_path = os.path.join(build_dir, 'settings.nix')
-  host_config_path = os.path.join(build_dir, 'org-config', 'hosts', config_name)
-  if os.path.exists(settings_path):
-    os.unlink(settings_path)
-  os.symlink(host_config_path, settings_path)
-
-
 ELM_ERROR_REGEX = re.compile(
   r"/build/frontend/elm-stuff/.*/d\.dat: openBinaryFile: resource busy \(file is locked\)",
   re.MULTILINE)
@@ -86,24 +78,22 @@ def retry_if_elm_failed(proc, retry_routine):
   return proc if not retry_needed else retry_routine()
 
 
-def build_config(build_dir: str, hostname: str, retry: bool = False):
+def build_config(build_dir: str, host_path: str, retry: bool = False):
+  config_name = os.path.basename(host_path).removesuffix(".nix")
   if retry:
-    print(f'Retry building config: {hostname}')
+    print(f'Retry building config: {config_name}')
   else:
-    print(f'Building config: {hostname}')
-  config_name = os.path.basename(hostname)
-  prepare_tree(build_dir, config_name)
-  config_path = os.path.join(build_dir, 'configuration.nix')
+    print(f'Building config: {config_name}')
   proc = subprocess.run([ 'nix-build',
-                          '<nixpkgs/nixos>',
-                          '-I', f'nixos-config={config_path}',
-                          '-A', 'system',
+                          'eval_all_hosts.nix',
+                          '-A', config_name,
                           '--no-out-link' ],
-                        stdout = PIPE, stderr = PIPE)
+                        stdout = PIPE, stderr = PIPE,
+                        cwd = build_dir)
   print(proc.stderr.decode())
   print(proc.stdout.decode())
 
-  retry_routine = lambda: build_config(build_dir, hostname, True)
+  retry_routine = lambda: build_config(build_dir, host_path, True)
   # If we are already retrying, we do not consider retrying again,
   # otherwise we run the routine to decide if we need to retry.
   return proc if retry else retry_if_elm_failed(proc, retry_routine)
@@ -111,7 +101,7 @@ def build_config(build_dir: str, hostname: str, retry: bool = False):
 
 def do_build_configs(nixos_config_dir: str,
                      build_dir: str,
-                     configs: Iterable) -> None:
+                     configs: Iterable[str]) -> None:
   init_tree(nixos_config_dir, build_dir)
   validate_json(build_dir)
   for config in configs:
