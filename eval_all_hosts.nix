@@ -2,6 +2,7 @@
 
 { nixpkgs ? import <nixpkgs> { }
 , eval_nixos ? import <nixpkgs/nixos>
+, prod_build ? true
 }:
 
 with nixpkgs.lib;
@@ -16,7 +17,10 @@ let
     # with the <...> set to the result of the call to eval_host.nix below.
     (eval_nixos {
       configuration =
-        import ./eval_host.nix { host_path = to_host_path hostname; };
+        import ./eval_host.nix {
+          inherit prod_build;
+          host_path = to_host_path hostname;
+        };
     }).config.system.build.toplevel;
 
   hosts =

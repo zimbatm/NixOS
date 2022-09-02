@@ -56,12 +56,6 @@ def init_tree(nixos_config_dir: str, build_dir: str) -> None:
                   symlinks = True,
                   ignore = shutil.ignore_patterns('.git', 'result',
                                                   'id_tunnel', 'settings.nix'))
-  # Create a minimal hardware-configuration.nix file
-  with open(os.path.join(build_dir, 'hardware-configuration.nix'), 'w') as fp:
-    fp.write('{}')
-  # Create an empty key file
-  with open(os.path.join(build_dir, 'local', 'id_tunnel'), 'w') as _:
-    pass
 
 
 ELM_ERROR_REGEX = re.compile(
@@ -86,6 +80,7 @@ def build_config(build_dir: str, host_path: str, retry: bool = False):
     print(f'Building config: {config_name}')
   proc = subprocess.run([ 'nix-build',
                           'eval_all_hosts.nix',
+                          '--arg', 'prod_build', 'false',
                           '-A', config_name,
                           '--no-out-link' ],
                         stdout = PIPE, stderr = PIPE,

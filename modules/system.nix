@@ -15,6 +15,10 @@ in
 
 {
   options.settings.system = {
+    isProdBuild = mkOption {
+      type = types.bool;
+      default = true;
+    };
 
     partitions = {
       forcePartitions = mkEnableOption "forcing the defined partitions";
@@ -222,13 +226,17 @@ in
     assertions = [
       {
         assertion = hasAttr config.networking.hostName tnl_cfg.tunnels;
-        message = "This host's host name is not present in the tunnel config (${toString cfg.tunnels_json_dir_path}).";
+        message =
+          "This host's host name is not present in the tunnel config " +
+          "(${toString cfg.tunnels_json_dir_path}).";
       }
       {
-        assertion = builtins.pathExists cfg.private_key_source;
+        assertion = cfg.isProdBuild -> builtins.pathExists cfg.private_key_source;
         # Referencing the path directly, causes the file to be copied to the nix store.
         # By converting the path to a string with toString, we can avoid the file being copied.
-        message = "The private key file at ${toString cfg.private_key_source} does not exist.";
+        message =
+          "The private key file at ${toString cfg.private_key_source} " +
+          "does not exist.";
       }
     ];
 
