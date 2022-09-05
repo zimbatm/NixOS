@@ -280,7 +280,11 @@ in
       [ python_scripts_overlay ];
 
     # Use the schedutil frequency scaling governor.
-    powerManagement.cpuFreqGovernor = "schedutil";
+    # mkForce has a priority of 50, while the default priority is 100.
+    # We use 75 here to override the setting in hardware-configuration.nix files
+    # that were generated with old versions of nixos-generate-config that did
+    # not yet use mkDefault, but we also still want to allow the usage of mkForce.
+    powerManagement.cpuFreqGovernor = mkOverride 75 "schedutil";
 
     zramSwap = {
       enable = true;
