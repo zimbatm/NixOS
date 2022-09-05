@@ -8,7 +8,7 @@ in
 
 {
   options.settings.users.available_permission_profiles = mkOption {
-    type = types.attrs;
+    type = with types; attrsOf anything;
     description = ''
       Attribute set of the permission profiles that can be defined through JSON.
     '';
