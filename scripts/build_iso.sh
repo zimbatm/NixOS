@@ -1,9 +1,10 @@
 #! /usr/bin/env bash
 
-iso_dir="$(dirname "${BASH_SOURCE}")/../rescue_iso"
+base_dir="$(dirname "${BASH_SOURCE}")/../"
 
-nix-build '<nixpkgs/nixos>' -A config.system.build.isoImage \
-                            -I nixos-config="${iso_dir}/iso.nix"
+nix-build "${base_dir}/eval_all_hosts.nix" \
+  --attr rescue_iso_img \
+  --arg prod_build true
 
 if [ "${?}" -eq "0" ]; then
   echo -e "\nThe ISO can be found in result/iso.\n"

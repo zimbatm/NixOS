@@ -295,46 +295,10 @@ jobs:
           --group_id ${{ matrix.group_id }}"
 
 
-  build_iso:
-    runs-on: "ubuntu-latest"
-    needs: encrypt_secrets
-    # Only run this step if new secrets were pushed,
-    # otherwise the action will be retriggered anyway.
-    if: needs.encrypt_secrets.outputs.secrets_pushed_outcome == 'skipped'
-    steps:
-      - name: Checkout the main repo
-        uses: "actions/checkout@v3"
-        with:
-          repository: "${{ inputs.main_repo }}"
-          persist-credentials: false
-
-      - name: Checkout the org repo
-        uses: "actions/checkout@v3"
-        with:
-          repository: "${{ inputs.org_repo }}"
-          path: "org-config"
-          ssh-key: "${{ secrets.NIXOS_OCB_CONFIG_DEPLOY_KEY }}"
-          persist-credentials: false
-
-      - name: Install the Nix package manager
-        uses: "cachix/install-nix-action@master"
-        with:
-          nix_path: "${{ inputs.nix_path }}"
-
-      - name: Build the ISO image
-        run: >-
-          touch ./local/id_tunnel_iso &&
-          nix-instantiate
-          "<nixpkgs/nixos>"
-          -A config.system.build.isoImage
-          -I nixos-config='rescue_iso/iso.nix'
-
-
   deploy:
     runs-on: "ubuntu-latest"
     needs:
       - build
-      - build_iso
       - update_nixos_robot_keys
     # We only want to deploy when commits have been pushed to master
     if: >-

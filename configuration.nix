@@ -2,7 +2,14 @@
 # the current server.
 {
   imports = [
-    (import ./eval_host.nix { host_path = ./settings.nix; })
+    (import ./eval_host.nix {
+      host_config = {
+        imports = [
+          ./settings.nix
+          ./hardware-configuration.nix
+        ];
+      };
+    })
   ];
 }
 

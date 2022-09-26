@@ -1,21 +1,22 @@
-# Take a path to a host file to be included in this config.
-# The result of calling this with a path, is a NixOS module.
+# Take as an argument a host-specific config to be included.
+# The result of calling this expression with such a config, is a complete NixOS module.
 # Example usage:
-#   import ./eval_host.nix { host_path = ./org-config/hosts.myhost.nix; }
-{ host_path
+#   import ./eval_host.nix { host_config = ./org-config/hosts.myhost.nix; }
+{ host_config
 , prod_build ? true
 }:
 
-{ config, lib, ... }:
+{ lib, ... }:
 
 with lib;
 
 {
   imports = [
-    # Import the host path that was passed as an argument.
-    host_path
+    # Import the host config that was passed as an argument.
+    host_config
     ./modules
-  ] ++ optional prod_build ./hardware-configuration.nix;
+  ]
+  ++ optional (builtins.pathExists ./org-config) ./org-config;
 
   config.settings.system.isProdBuild = prod_build;
 }
