@@ -117,19 +117,6 @@ in
           };
         };
 
-        crossSignedChain = {
-          enable = mkEnableOption "the Let's Encrypt cross-signed certificate chain";
-
-          preferredChain = mkOption {
-            type = types.str;
-            default = "DST Root CA X3";
-            readOnly = true;
-            description = ''
-              The Common Name (CN) of the root certificate to anchor the chain on.
-            '';
-          };
-        };
-
         keytype = mkOption {
           type = types.str;
           default = "EC256";
@@ -266,14 +253,11 @@ in
                 letsencrypt = "letsencrypt";
                 caserver = optionalAttrs cfg.acme.staging.enable
                   { inherit (cfg.acme.staging) caserver; };
-                preferredChain = optionalAttrs cfg.acme.crossSignedChain.enable
-                  { inherit (cfg.acme.crossSignedChain) preferredChain; };
                 acme_template = {
                   email = cfg.acme.email_address;
                   storage = "${cfg.acme.storage}/acme.json";
                   keyType = cfg.acme.keytype;
-                } // caserver
-                // preferredChain;
+                } // caserver;
                 accesslog = optionalAttrs cfg.accesslog.enable {
                   accessLog = {
                     # Make sure that the times are printed in local time
