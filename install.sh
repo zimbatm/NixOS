@@ -114,6 +114,9 @@ config_repo_name="NixOS-OCB-config"
 main_repo="git@github.com:${github_org_name}/${main_repo_name}.git"
 config_repo="git@github.com:${github_org_name}/${config_repo_name}.git"
 
+nixos_dir="/mnt/etc/nixos/"
+config_dir="${nixos_dir}/org-config/"
+
 github_nixos_robot_name="OCB NixOS Robot"
 github_nixos_robot_email="69807852+nixos-ocb@users.noreply.github.com"
 
@@ -137,16 +140,19 @@ if [[ ! ${ROOT_SIZE} =~ ^[0-9]+$ ]]; then
 fi
 disk_size="$(($(blockdev --getsize64 "${DEVICE}")/1024/1024/1024 - 2))"
 if [ "${ROOT_SIZE}" -gt "${disk_size}" ]; then
-  echo "Error: root size bigger than the provided device, please specify a smaller root size."
+  echo -n "Error: root size bigger than the provided device, "
+  echo     "please specify a smaller root size."
   exit_usage
 fi
 
 if [ "${USE_UEFI}" = true ] && [ ! -d "/sys/firmware/efi" ]; then
-  echo "ERROR: installing in UEFI mode but we are currently booted in legacy mode."
-  echo "Please check:"
-  echo "  1. That your BIOS is configured to boot using UEFI only."
-  echo "  2. That the hard disk that you booted from (usb key or hard drive) is using the GPT format and has a valid ESP."
-  echo "And reboot the system in UEFI mode. Alternatively you can run this installer in legacy mode."
+  echo    "ERROR: installing in UEFI mode but we are currently booted in legacy mode."
+  echo    "Please check:"
+  echo    "  1. That your BIOS is configured to boot using UEFI only."
+  echo -n "  2. That the hard disk that you booted from (usb key or hard drive) "
+  echo    "is using the GPT format and has a valid ESP."
+  echo -n "And reboot the system in UEFI mode. "
+  echo    "Alternatively you can run this installer in legacy mode."
   exit 1
 fi
 
@@ -272,13 +278,22 @@ else
   chmod 0400 /tmp/id_tunnel
 fi
 
-# Check whether we can authenticate to GitHub using this server's key
+# Check whether we can authenticate to GitHub using this server's key.
+# We run this part in a subshell, delimated by the parentheses, and in which we
+# set +e, such that the installation script does not abort when the git command
+# exits with a non-zero exit code.
 (
   set +e
 
   function test_auth() {
-    nix-shell --packages git --run "git -c core.sshCommand='ssh -F none -o IdentitiesOnly=yes -i /tmp/id_tunnel' \
-                                        ls-remote ${config_repo} > /dev/null 2>&1"
+    # Try to run a git command on the remote to test the authentication.
+    # If this command exists with a zero exit code, then we have successfully
+    # authenticated to GitHub.
+    nix-shell --packages git \
+              --run "git -c core.sshCommand='ssh -F none \
+                                                 -o IdentitiesOnly=yes \
+                                                 -i /tmp/id_tunnel' \
+                         ls-remote ${config_repo} > /dev/null 2>&1"
   }
 
   echo "Trying to authenticate to GitHub..."
@@ -310,15 +325,14 @@ fi
 )
 
 # Set some global Git settings
-nix-shell --packages git --run "git config --global pull.rebase true"
-nix-shell --packages git --run "git config --global user.name '${github_nixos_robot_name}'"
-nix-shell --packages git --run "git config --global user.email '${github_nixos_robot_email}'"
-nix-shell --packages git --run "git config --global core.sshCommand 'ssh -i /tmp/id_tunnel'"
+nix-shell --packages git \
+          --run "git config --global pull.rebase true; \
+                 git config --global user.name '${github_nixos_robot_name}'; \
+                 git config --global user.email '${github_nixos_robot_email}'; \
+                 git config --global core.sshCommand 'ssh -i /tmp/id_tunnel'"
 
 # Commit a new encryption key to GitHub, if one does not exist yet
 if [ "${CREATE_DATA_PART}" = true ]; then
-  nixos_dir="/mnt/etc/nixos/"
-  config_dir="${nixos_dir}/org-config/"
   secrets_dir="${MSFOCB_SECRETS_DIRECTORY:-"/run/.secrets/"}"
 
   # Clean up potential left-over directories
@@ -329,10 +343,9 @@ if [ "${CREATE_DATA_PART}" = true ]; then
     rm --recursive --force "${secrets_dir}"
   fi
 
-  nix-shell --packages git --run "git clone --filter=blob:none ${main_repo} \
-                                                               ${nixos_dir}"
-  nix-shell --packages git --run "git clone --filter=blob:none ${config_repo} \
-                                                               ${config_dir}"
+  nix-shell --packages git \
+            --run "git clone --filter=blob:none ${main_repo} ${nixos_dir}; \
+                   git clone --filter=blob:none ${config_repo} ${config_dir}"
 
   function decrypt_secrets() {
     mkdir --parents "${secrets_dir}"
@@ -354,27 +367,28 @@ if [ "${CREATE_DATA_PART}" = true ]; then
 
     random_id=$(tr --complement --delete A-Za-z0-9 < /dev/urandom | head --bytes=10)
     branch_name="installer_commit_enc_key_${TARGET_HOSTNAME}_${random_id}"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        checkout -b ${branch_name}"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        add secrets/nixos_encryption-secrets.yml"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        commit \
-                                        --message 'Commit encryption key for ${TARGET_HOSTNAME}.'"
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        push -u origin ${branch_name}"
+    nix-shell --packages git \
+              --run "git -C ${config_dir} \
+                         checkout -b ${branch_name}; \
+                     git -C ${config_dir} \
+                         add secrets/nixos_encryption-secrets.yml; \
+                     git -C ${config_dir} \
+                         commit \
+                         --message 'Commit encryption key for ${TARGET_HOSTNAME}.'; \
+                     git -C ${config_dir} \
+                         push -u origin ${branch_name}"
 
     echo -e "\n\nThe encryption key for this server was committed to GitHub"
     echo -e "Please go to the following link to create a pull request:"
     echo -e "\nhttps://github.com/${github_org_name}/${config_repo_name}/pull/new/${branch_name}\n"
     echo -e "The installer will continue once the pull request has been merged into master."
 
-    nix-shell --packages git --run "git -C ${config_dir} \
-                                        checkout master"
+    nix-shell --packages git \
+              --run "git -C ${config_dir} checkout master"
 
     while [ ! -f "${keyfile}" ]; do
-      nix-shell --packages git --run "git -C ${config_dir} \
-                                          pull > /dev/null 2>&1"
+      nix-shell --packages git \
+                --run "git -C ${config_dir} pull > /dev/null 2>&1"
       decrypt_secrets
       if [ ! -f "${keyfile}" ]; then
         sleep 10
@@ -383,16 +397,19 @@ if [ "${CREATE_DATA_PART}" = true ]; then
   fi
 fi
 
+# Now that the repos on GitHub should contain all the information,
+# we throw away the clones we made so far and start over with clean ones.
 rm --recursive --force /mnt/etc/
-nix-shell --packages git --run "git clone --filter=blob:none \
-                                    ${main_repo} \
-                                    /mnt/etc/nixos/"
-nix-shell --packages git --run "git clone --filter=blob:none \
-                                    ${config_repo} \
-                                    /mnt/etc/nixos/org-config"
+nix-shell --packages git \
+          --run "git clone --filter=blob:none ${main_repo} ${nixos_dir}; \
+                 git clone --filter=blob:none ${config_repo} ${config_dir}"
+# Generate hardware-configuration.nix, but omit the filesystems which
+# we already define statically in eval_host.nix.
 nixos-generate-config --root /mnt --no-filesystems
-ln --symbolic org-config/hosts/"${TARGET_HOSTNAME}".nix /mnt/etc/nixos/settings.nix
-cp /tmp/id_tunnel /tmp/id_tunnel.pub /mnt/etc/nixos/local/
+# Create the settings.nix symlink pointing to the file defining the current server.
+ln --symbolic org-config/hosts/"${TARGET_HOSTNAME}".nix \
+              ${nixos_dir}/settings.nix
+cp /tmp/id_tunnel /tmp/id_tunnel.pub ${nixos_dir}/local/
 
 if [ "${CREATE_DATA_PART}" = true ]; then
   # Do this only after having generated the hardware config
