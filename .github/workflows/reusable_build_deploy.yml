@@ -11,12 +11,17 @@ on:
         type: boolean
         description: |-
           Whether generated secrets should be pushed back to the branch.
+          This should be set to true when running the actions from a PR
+          and when the secrets should be regenerated.
+          Set to false otherwise to avoid an infinite loop where this action
+          keeps on retriggering itself.
       push_robot_keys:
         required: true
         type: boolean
         description: |-
-          Whether the public SSH keys for the GitHub robot  user should be
+          Whether the public SSH keys for the GitHub robot user should be
           updated.
+          Set to true when running from the master branch only.
       nix_path:
         required: false
         default: |-
@@ -29,7 +34,7 @@ on:
         default: "MSF-OCB/NixOS"
         type: string
         description: |-
-          The main repo containing the NixOS config
+          The main repo containing the NixOS config.
       org_repo:
         required: false
         default: "MSF-OCB/NixOS-OCB-config"
@@ -42,8 +47,20 @@ on:
         type: string
         description: |-
           The Cachix cache to use.
+          See https://www.cachix.org/
+          This is fully optional, but it can save time if we can download
+          things like our python package without needing to rebuild it locally.
 
     secrets:
+      # NOTE: deploy keys are SSH keys that can be used to give access to a
+      #       particular GitHub repo. They can be either RO or RW.
+      #       The standard GitHub token that is used when we do not configure
+      #       authentication explicitly, has some limitations (it can only access
+      #       the current repo, it does not retrigger an action when new commits
+      #       are pushed). We use deploy keys to avoid these limitations.
+      #       Deploy keys can be created with
+      #         ssh-keygen -N "" -C "" -t ed25519
+      #       and added to a repo from the repo's settings page on GitHub.
       NIXOS_OCB_CONFIG_DEPLOY_KEY:
         required: true
         description: |-
@@ -65,7 +82,8 @@ on:
         required: true
         description: |-
           Private SSH key for the robot user, corresponding to the public key
-          defined for this user in the org repo.
+          defined for this user in the org repo
+          (the entry for robot in json/keys.json).
       NIXOS_SECRET_MANAGEMENT_VAULT_KEY:
         required: true
         description: |-
@@ -73,7 +91,7 @@ on:
       NIXOS_CACHIX_AUTH_KEY:
         required: true
         description: |-
-          The auth key for the cachix cache.
+          The auth key for the cachix cache, see above.
 
 
 jobs:
