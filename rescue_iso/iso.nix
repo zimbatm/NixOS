@@ -28,7 +28,7 @@ in
         partitions = { };
       };
       private_key_source = ../local/id_tunnel_iso;
-      copy_private_key_to_store = true;
+      copy_private_key_to_store = sys_cfg.isProdBuild;
       diskSwap.enable = false;
     };
     boot.mode = "none";

@@ -6,6 +6,7 @@ let
   inherit (config.lib) ext_lib;
 
   cfg = config.settings.system;
+  boot_cfg = config.settings.boot;
   tnl_cfg = config.settings.reverse_tunnel;
   crypto_cfg = config.settings.crypto;
   docker_cfg = config.settings.docker;
@@ -21,7 +22,13 @@ in
     };
 
     partitions = {
-      forcePartitions = mkEnableOption "forcing the defined partitions";
+      forcePartitions = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          "Force the defined partitions.
+        '';
+      };
 
       partitions = mkOption {
         type = with types; attrsOf (submodule {
@@ -43,6 +50,28 @@ in
             };
           };
         });
+        default =
+          {
+            "/" = {
+              enable = true;
+              device = "/dev/disk/by-label/nixos_root";
+              fsType = "ext4";
+              options = [ "defaults" "noatime" "acl" ];
+              autoResize = true;
+            };
+            "/boot" = {
+              enable = boot_cfg.separate_partition;
+              device = "/dev/disk/by-label/nixos_boot";
+              fsType = "ext4";
+              options = [ "defaults" "noatime" "nosuid" "nodev" "noexec" ];
+              autoResize = true;
+            };
+            "/boot/efi" = {
+              enable = boot_cfg.mode == boot_cfg.modes.uefi;
+              device = "/dev/disk/by-label/EFI";
+              fsType = "vfat";
+            };
+          };
       };
     };
 
@@ -274,7 +303,7 @@ in
       let
         python_scripts_overlay = self: super: {
           ocb_python_scripts =
-            self.callPackage ../scripts/python_nixostools { };
+            self.callPackage ../scripts/python_nixostools { nixpkgs = pkgs; };
         };
       in
       [ python_scripts_overlay ];
@@ -722,6 +751,12 @@ in
       dev.enable = false;
       info.enable = false;
     };
+
+    # This value determines the NixOS release with which your system is to be
+    # compatible, in order to avoid breaking some software such as database
+    # servers. You should change this only after NixOS release notes say you
+    # should.
+    system.stateVersion = "18.03"; # Did you read the comment?
   };
 }
 
