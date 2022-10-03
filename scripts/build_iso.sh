@@ -3,7 +3,7 @@
 base_dir="$(dirname "${BASH_SOURCE}")/../"
 
 nix-build "${base_dir}/eval_all_hosts.nix" \
-  --attr rescue_iso_img \
+  --attr rescue-iso-img \
   --arg prod_build true
 
 if [ "${?}" -eq "0" ]; then

@@ -29,6 +29,9 @@ let
   build_iso = hostname:
     (eval_host hostname).config.system.build.isoImage;
 
+  build_azure_image = hostname:
+    (eval_host hostname).config.system.build.azureImage;
+
   hosts =
     map (removeSuffix ".nix")
       (attrNames
@@ -40,6 +43,8 @@ genAttrs hosts build_host //
 {
   # Add an aditional attribute, rescue_iso_img,
   # that will build the actual ISO image.
-  rescue_iso_img = build_iso "rescue_iso";
+  rescue-iso-img = build_iso "rescue-iso";
+
+  azure-installer-img = build_azure_image "azure-installer";
 }
 
