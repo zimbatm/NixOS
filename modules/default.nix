@@ -16,6 +16,7 @@
     ./packages.nix
     ./panic_button.nix
     ./prometheus.nix
+    ./live_system.nix
     ./load_json.nix
     ./reverse-tunnel.nix
     ./sshd.nix
