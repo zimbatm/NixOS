@@ -73,6 +73,11 @@ in
         default = [ ];
         description = "Globally defined DNS servers, in addition to those obtained by DHCP.";
       };
+
+      dhcpcd.enable = mkOption {
+        type = types.bool;
+        default = true;
+      };
     };
   };
 
@@ -81,7 +86,7 @@ in
       hostName = mkForce cfg.host_name;
       # All non-manually configured interfaces are configured by DHCP.
       useDHCP = true;
-      dhcpcd = {
+      dhcpcd = mkIf cfg.dhcpcd.enable {
         persistent = true;
         # Per the manpage, interfaces matching these but also
         # matching a pattern in denyInterfaces, are still denied
