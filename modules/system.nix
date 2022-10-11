@@ -284,7 +284,7 @@ in
           ext_lib.filterEnabled
         ];
       in
-      mkWarnings cfg.partitions.partitions;
+      mkIf cfg.isProdBuild (mkWarnings cfg.partitions.partitions);
 
     fileSystems =
       let
