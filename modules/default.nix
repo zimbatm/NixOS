@@ -1,7 +1,4 @@
 {
-  # The cachix.nix module is automatically generated.
-  # See scripts/configure_cachix.sh
-
   imports = [
     ./auto_shutdown.nix
     ./boot.nix
